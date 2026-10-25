@@ -2,9 +2,10 @@
 DELETE FROM saves;
 DELETE FROM writer_profiles;
 DELETE FROM seeker_profiles;
-DELETE FROM sessions;
-DELETE FROM magic_link_tokens;
-DELETE FROM users;
+DELETE FROM session;
+DELETE FROM account;
+DELETE FROM verification;
+DELETE FROM "user";
 DELETE FROM grants;
 
 INSERT INTO grants (
@@ -211,12 +212,15 @@ INSERT INTO grants (
   '["digital","media arts"]', 'open'
 );
 
--- Stub writer accounts (paid/listed) for Connect directory
-INSERT INTO users (id, email, account_type, seeker_kind, subscription_tier, subscription_status) VALUES
-('u_writer_maya', 'maya.chen@example.com', 'writer', NULL, 'paid', 'active'),
-('u_writer_jordan', 'jordan.blake@example.com', 'writer', NULL, 'paid', 'active'),
-('u_writer_sam', 'sam.okonkwo@example.com', 'writer', NULL, 'paid', 'active'),
-('u_writer_priya', 'priya.nair@example.com', 'writer', NULL, 'paid', 'active');
+-- Stub writer accounts (paid/listed) for Connect directory (Better Auth `user` table)
+INSERT INTO "user" (
+  id, name, email, emailVerified, image, createdAt, updatedAt,
+  accountType, seekerKind, subscriptionTier, stripeCustomerId, stripeSubscriptionId, subscriptionStatus
+) VALUES
+('u_writer_maya', 'Maya Chen', 'maya.chen@example.com', 1, NULL, datetime('now'), datetime('now'), 'writer', NULL, 'paid', NULL, NULL, 'active'),
+('u_writer_jordan', 'Jordan Blake', 'jordan.blake@example.com', 1, NULL, datetime('now'), datetime('now'), 'writer', NULL, 'paid', NULL, NULL, 'active'),
+('u_writer_sam', 'Sam Okonkwo', 'sam.okonkwo@example.com', 1, NULL, datetime('now'), datetime('now'), 'writer', NULL, 'paid', NULL, NULL, 'active'),
+('u_writer_priya', 'Priya Nair', 'priya.nair@example.com', 1, NULL, datetime('now'), datetime('now'), 'writer', NULL, 'paid', NULL, NULL, 'active');
 
 INSERT INTO writer_profiles (
   user_id, display_name, org_name, disciplines, provinces, rate_range, bio, portfolio_url, listed
