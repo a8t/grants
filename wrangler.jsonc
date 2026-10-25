@@ -1,0 +1,35 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"compatibility_date": "2026-10-19",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"name": "canada-grant-finder",
+	"main": "./src/worker.ts",
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS"
+	},
+	"observability": {
+		"enabled": true
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "grants",
+			"database_id": "00000000-0000-0000-0000-000000000001",
+			"migrations_dir": "migrations"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "ASSETS_BUCKET",
+			"bucket_name": "grants-assets"
+		}
+	],
+	"triggers": {
+		"crons": ["0 14 * * *"]
+	},
+	"vars": {
+		"APP_NAME": "Grant Finder",
+		"DEFAULT_PROVINCE": "ON"
+	}
+}

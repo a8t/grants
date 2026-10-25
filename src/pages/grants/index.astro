@@ -1,0 +1,146 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { GrantSearchForm } from '@/components/GrantSearchForm';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { getDb } from '@/lib/db';
+import {
+	applicantLabel,
+	formatAmount,
+	formatDeadline,
+	listGrants,
+} from '@/lib/grants';
+import { parseJsonArray } from '@/lib/db';
+import { cn } from '@/lib/utils';
+import type { GrantStatus } from '@/lib/types';
+
+const params = Astro.url.searchParams;
+const q = params.get('q') ?? '';
+const applicantParam = params.get('applicant') ?? 'all';
+const statusParam = params.get('status') ?? 'all';
+const province = params.get('province') ?? 'ON';
+
+const applicant =
+	applicantParam === 'individual' || applicantParam === 'organization'
+		? applicantParam
+		: 'all';
+const status =
+	statusParam === 'open' || statusParam === 'rolling' || statusParam === 'closed'
+		? (statusParam as GrantStatus)
+		: 'all';
+
+let grants = [];
+let error: string | null = null;
+try {
+	const db = getDb();
+	grants = await listGrants(db, { q, applicant, status, province });
+} catch (e) {
+	error = e instanceof Error ? e.message : 'Could not load grants.';
+}
+
+const otherProvinces = ['BC', 'AB', 'QC', 'NS'];
+---
+
+<BaseLayout title="Browse grants — Grant Finder">
+	<section class="mx-auto max-w-6xl px-4 pb-16 pt-8">
+		<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+			<div>
+				<h1 class="text-4xl sm:text-5xl">Browse grants</h1>
+				<p class="mt-2 max-w-2xl text-foreground/80">
+					Ontario arts &amp; culture first. Federal programs open to Ontario applicants are included.
+					Other provinces: coming soon.
+				</p>
+			</div>
+			<div class="flex flex-wrap gap-2">
+				<Badge>Province: Ontario</Badge>
+				{
+					otherProvinces.map((p) => (
+						<Badge variant="neutral" className="opacity-60">
+							{p} · soon
+						</Badge>
+					))
+				}
+			</div>
+		</div>
+
+		<div class="mb-8 rounded-base border-2 border-border bg-secondary-background p-4 shadow-shadow sm:p-5">
+			<GrantSearchForm client:load q={q} applicant={applicant} status={status} />
+		</div>
+
+		{
+			error ? (
+				<div class="rounded-base border-2 border-border bg-[#ff4d50] p-4 text-black shadow-shadow">
+					<p class="font-heading">Database not ready</p>
+					<p class="mt-1 text-sm">{error}</p>
+					<p class="mt-2 text-sm">
+						Run <code class="rounded-base border-2 border-border bg-secondary-background px-1">npm run db:reset:local</code> then restart{' '}
+						<code class="rounded-base border-2 border-border bg-secondary-background px-1">npm run dev</code>.
+					</p>
+				</div>
+			) : (
+				<>
+					<p class="mb-4 font-heading text-sm uppercase tracking-wide">
+						{grants.length} grant{grants.length === 1 ? '' : 's'}
+					</p>
+					<ul class="grid gap-4">
+						{grants.map((grant) => {
+							const disciplines = parseJsonArray(grant.disciplines);
+							return (
+								<li>
+									<a
+										href={`/grants/${grant.slug}`}
+										class="block rounded-base border-2 border-border bg-secondary-background p-5 shadow-shadow no-underline transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none"
+									>
+										<div class="flex flex-wrap items-start justify-between gap-3">
+											<div>
+												<p class="text-sm font-base text-foreground/70">{grant.funder}</p>
+												<h2 class="mt-1 text-2xl leading-tight">{grant.name}</h2>
+											</div>
+											<div class="flex flex-wrap gap-2">
+												<Badge>{grant.province_scope === 'CA' ? 'National' : 'Ontario'}</Badge>
+												<Badge variant="neutral">{grant.status}</Badge>
+											</div>
+										</div>
+										<p class="mt-3 line-clamp-2 text-sm text-foreground/80">
+											{grant.eligibility_summary}
+										</p>
+										<div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+											<span>
+												<span class="font-heading">Deadline</span> {formatDeadline(grant)}
+											</span>
+											<span>
+												<span class="font-heading">Amount</span> {formatAmount(grant)}
+											</span>
+											<span>
+												<span class="font-heading">Who</span>{' '}
+												{applicantLabel(grant.applicant_types)}
+											</span>
+										</div>
+										{disciplines.length > 0 && (
+											<div class="mt-3 flex flex-wrap gap-1.5">
+												{disciplines.slice(0, 5).map((d) => (
+													<span class="rounded-base border-2 border-border bg-main/40 px-2 py-0.5 text-xs">
+														{d}
+													</span>
+												))}
+											</div>
+										)}
+									</a>
+								</li>
+							);
+						})}
+					</ul>
+					{grants.length === 0 && (
+						<div class="rounded-base border-2 border-border bg-secondary-background p-8 text-center shadow-shadow">
+							<p class="font-heading text-xl">No matches</p>
+							<p class="mt-2 text-sm text-foreground/80">Try a broader search or clear filters.</p>
+							<a href="/grants" class={cn(buttonVariants({ className: 'mt-4 inline-flex no-underline' }))}>
+								Reset filters
+							</a>
+						</div>
+					)}
+				</>
+			)
+		}
+	</section>
+</BaseLayout>

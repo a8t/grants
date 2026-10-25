@@ -1,0 +1,121 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { getDb, parseJsonArray } from '@/lib/db';
+import {
+	applicantLabel,
+	formatAmount,
+	formatDeadline,
+	getGrantBySlug,
+} from '@/lib/grants';
+import { cn } from '@/lib/utils';
+
+const { slug } = Astro.params;
+if (!slug) {
+	return Astro.redirect('/grants');
+}
+
+let grant = null;
+let error: string | null = null;
+try {
+	const db = getDb();
+	grant = await getGrantBySlug(db, slug);
+} catch (e) {
+	error = e instanceof Error ? e.message : 'Could not load grant.';
+}
+
+if (!error && !grant) {
+	Astro.response.status = 404;
+}
+
+const disciplines = grant ? parseJsonArray(grant.disciplines) : [];
+---
+
+<BaseLayout
+	title={grant ? `${grant.name} — Grant Finder` : 'Grant not found'}
+	description={grant?.eligibility_summary}
+>
+	<section class="mx-auto max-w-3xl px-4 pb-16 pt-8">
+		<a href="/grants" class={cn(buttonVariants({ variant: 'neutral', size: 'sm' }), 'no-underline')}>
+			← All grants
+		</a>
+
+		{
+			error ? (
+				<div class="mt-6 rounded-base border-2 border-border bg-[#ff4d50] p-4 shadow-shadow">
+					<p class="font-heading">Database not ready</p>
+					<p class="mt-1 text-sm">{error}</p>
+				</div>
+			) : !grant ? (
+				<div class="mt-6 rounded-base border-2 border-border bg-secondary-background p-8 shadow-shadow">
+					<h1 class="text-3xl">Grant not found</h1>
+					<p class="mt-2 text-foreground/80">That slug is not in the seed corpus.</p>
+				</div>
+			) : (
+				<article class="mt-6">
+					<div class="rounded-base border-2 border-border bg-secondary-background p-6 shadow-shadow sm:p-8">
+						<p class="text-sm text-foreground/70">{grant.funder}</p>
+						<h1 class="mt-2 text-4xl leading-tight sm:text-5xl">{grant.name}</h1>
+						<div class="mt-4 flex flex-wrap gap-2">
+							<Badge>{grant.province_scope === 'CA' ? 'National (ON eligible)' : 'Ontario'}</Badge>
+							<Badge variant="neutral">{grant.status}</Badge>
+							<Badge variant="neutral">{applicantLabel(grant.applicant_types)}</Badge>
+						</div>
+
+						<dl class="mt-8 grid gap-4 sm:grid-cols-2">
+							<div class="rounded-base border-2 border-border bg-main/30 p-4">
+								<dt class="font-heading text-sm">Deadline</dt>
+								<dd class="mt-1 text-lg">{formatDeadline(grant)}</dd>
+							</div>
+							<div class="rounded-base border-2 border-border bg-main/30 p-4">
+								<dt class="font-heading text-sm">Amount</dt>
+								<dd class="mt-1 text-lg">{formatAmount(grant)}</dd>
+							</div>
+						</dl>
+
+						<h2 class="mt-8 text-2xl">Eligibility snapshot</h2>
+						<p class="mt-3 text-base leading-relaxed text-foreground/90">
+							{grant.eligibility_summary}
+						</p>
+
+						{
+							disciplines.length > 0 && (
+								<>
+									<h2 class="mt-8 text-2xl">Disciplines</h2>
+									<div class="mt-3 flex flex-wrap gap-2">
+										{disciplines.map((d) => (
+											<span class="rounded-base border-2 border-border bg-secondary-background px-2.5 py-1 text-sm shadow-shadow">
+												{d}
+											</span>
+										))}
+									</div>
+								</>
+							)
+						}
+
+						<div class="mt-10 flex flex-wrap gap-3">
+							<a
+								href={grant.url}
+								target="_blank"
+								rel="noopener noreferrer"
+								class={cn(buttonVariants({ size: 'lg' }), 'no-underline')}
+							>
+								View on funder site
+							</a>
+							<span
+								class={cn(
+									buttonVariants({ variant: 'neutral', size: 'lg' }),
+									'cursor-not-allowed opacity-60',
+								)}
+								title="Saves require a free account — coming soon"
+							>
+								Save (sign in)
+							</span>
+						</div>
+					</div>
+				</article>
+			)
+		}
+	</section>
+</BaseLayout>

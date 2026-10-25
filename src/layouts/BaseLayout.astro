@@ -1,0 +1,100 @@
+---
+import '../styles/global.css';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+type Props = {
+	title?: string;
+	description?: string;
+};
+
+const {
+	title = 'Grant Finder',
+	description = 'Find Ontario arts & culture grants, save deadlines, and connect with grant writers.',
+} = Astro.props;
+
+const path = Astro.url.pathname;
+const nav = [
+	{ href: '/grants', label: 'Browse grants' },
+	{ href: '/connect', label: 'Connect' },
+];
+---
+
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="description" content={description} />
+		<title>{title}</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body class="scrollbar antialiased">
+		<a
+			href="#main"
+			class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-main focus:px-3 focus:py-2 focus:border-2 focus:border-border"
+		>
+			Skip to content
+		</a>
+		<header class="border-b-2 border-border bg-secondary-background">
+			<div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4">
+				<a href="/" class="group flex items-center gap-3 no-underline">
+					<span
+						class="inline-flex size-10 items-center justify-center rounded-base border-2 border-border bg-main font-heading text-lg shadow-shadow transition-all group-hover:translate-x-boxShadowX group-hover:translate-y-boxShadowY group-hover:shadow-none"
+						aria-hidden="true"
+					>
+						G
+					</span>
+					<span class="font-heading text-xl tracking-tight sm:text-2xl">Grant Finder</span>
+				</a>
+				<nav class="flex flex-wrap items-center gap-2" aria-label="Primary">
+					{
+						nav.map((item) => (
+							<a
+								href={item.href}
+								class={cn(
+									buttonVariants({
+										variant: path.startsWith(item.href) ? 'default' : 'neutral',
+										size: 'sm',
+									}),
+									'no-underline',
+								)}
+								aria-current={path.startsWith(item.href) ? 'page' : undefined}
+							>
+								{item.label}
+							</a>
+						))
+					}
+					<span
+						class={cn(
+							buttonVariants({ variant: 'neutral', size: 'sm' }),
+							'cursor-not-allowed opacity-60 no-underline',
+						)}
+						title="Magic-link sign-in ships next — stubbed for now"
+					>
+						Sign in
+					</span>
+				</nav>
+			</div>
+		</header>
+		<main id="main">
+			<slot />
+		</main>
+		<footer class="mt-16 border-t-2 border-border bg-secondary-background">
+			<div class="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
+				<p class="font-heading">Grant Finder</p>
+				<p class="max-w-xl text-foreground/80">
+					Canada-wide shell · Ontario arts &amp; culture corpus first. Guest browse is free; accounts
+					and reminders come next.
+				</p>
+			</div>
+		</footer>
+	</body>
+</html>

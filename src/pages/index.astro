@@ -1,0 +1,59 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+---
+
+<BaseLayout title="Grant Finder — Ontario arts & culture grants">
+	<section class="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:pt-14">
+		<div
+			class="rounded-base border-2 border-border bg-secondary-background p-6 shadow-shadow sm:p-10"
+		>
+			<p class="mb-3 inline-block rounded-base border-2 border-border bg-main px-2 py-1 font-heading text-xs uppercase tracking-wide">
+				Ontario · Arts &amp; culture
+			</p>
+			<h1 class="max-w-3xl text-4xl leading-[1.05] sm:text-6xl">
+				Find grants.<br />Hit deadlines.<br />Get help writing.
+			</h1>
+			<p class="mt-5 max-w-xl text-lg text-foreground/85">
+				Browse Ontario-relevant arts programs as a guest. Save, match, and email reminders unlock
+				when you create a free or paid account.
+			</p>
+			<div class="mt-8 flex flex-wrap gap-3">
+				<a href="/grants" class={cn(buttonVariants({ size: 'lg' }), 'no-underline')}>
+					Browse grants
+				</a>
+				<a
+					href="/connect"
+					class={cn(buttonVariants({ variant: 'neutral', size: 'lg' }), 'no-underline')}
+				>
+					Find a grant writer
+				</a>
+			</div>
+		</div>
+
+		<div class="mt-10 grid gap-4 sm:grid-cols-3">
+			{
+				[
+					{
+						title: 'Guest',
+						body: 'Search Ontario arts grants and skim writer profiles. Nothing saved.',
+					},
+					{
+						title: 'Free',
+						body: 'Sticky profile filters, limited saves, monthly new-matches digest.',
+					},
+					{
+						title: 'Paid',
+						body: 'Ranked matches, unlimited saves, calendar + deadline email reminders.',
+					},
+				].map((tier) => (
+					<div class="rounded-base border-2 border-border bg-secondary-background p-5 shadow-shadow">
+						<h2 class="text-xl">{tier.title}</h2>
+						<p class="mt-2 text-sm text-foreground/80">{tier.body}</p>
+					</div>
+				))
+			}
+		</div>
+	</section>
+</BaseLayout>

@@ -1,0 +1,90 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { getDb, parseJsonArray } from '@/lib/db';
+import { listListedWriters } from '@/lib/writers';
+import { cn } from '@/lib/utils';
+
+let writers = [];
+let error: string | null = null;
+try {
+	const db = getDb();
+	writers = await listListedWriters(db);
+} catch (e) {
+	error = e instanceof Error ? e.message : 'Could not load writers.';
+}
+---
+
+<BaseLayout title="Connect — grant writers — Grant Finder">
+	<section class="mx-auto max-w-6xl px-4 pb-16 pt-8">
+		<div class="mb-8 max-w-2xl">
+			<h1 class="text-4xl sm:text-5xl">Connect</h1>
+			<p class="mt-3 text-foreground/80">
+				Directory of grant writers who work with Ontario arts &amp; culture applicants. Profiles are
+				public; contacting is gated to signed-in seekers (lead form ships next).
+			</p>
+		</div>
+
+		{
+			error ? (
+				<div class="rounded-base border-2 border-border bg-[#ff4d50] p-4 shadow-shadow">
+					<p class="font-heading">Database not ready</p>
+					<p class="mt-1 text-sm">{error}</p>
+				</div>
+			) : (
+				<ul class="grid gap-4 sm:grid-cols-2">
+					{writers.map((writer) => {
+						const disciplines = parseJsonArray(writer.disciplines);
+						const provinces = parseJsonArray(writer.provinces);
+						return (
+							<li class="flex flex-col rounded-base border-2 border-border bg-secondary-background p-5 shadow-shadow">
+								<div class="flex flex-wrap items-start justify-between gap-2">
+									<div>
+										<h2 class="text-2xl">{writer.display_name}</h2>
+										{writer.org_name && (
+											<p class="text-sm text-foreground/70">{writer.org_name}</p>
+										)}
+									</div>
+									<Badge>Listed</Badge>
+								</div>
+								<p class="mt-3 flex-1 text-sm leading-relaxed text-foreground/85">{writer.bio}</p>
+								<div class="mt-4 flex flex-wrap gap-1.5">
+									{disciplines.map((d) => (
+										<span class="rounded-base border-2 border-border bg-main/40 px-2 py-0.5 text-xs">
+											{d}
+										</span>
+									))}
+								</div>
+								<div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+									<span>
+										<span class="font-heading">Area</span> {provinces.join(', ')}
+										{writer.rate_range ? ` · ${writer.rate_range}` : ''}
+									</span>
+									<span
+										class={cn(
+											buttonVariants({ size: 'sm', variant: 'neutral' }),
+											'cursor-not-allowed opacity-60',
+										)}
+										title="Lead / contact form requires seeker sign-in"
+									>
+										Request intro
+									</span>
+								</div>
+							</li>
+						);
+					})}
+				</ul>
+			)
+		}
+
+		{
+			!error && writers.length === 0 && (
+				<div class="rounded-base border-2 border-border bg-secondary-background p-8 text-center shadow-shadow">
+					<p class="font-heading text-xl">No listed writers yet</p>
+					<p class="mt-2 text-sm">Seed the database to load stub profiles.</p>
+				</div>
+			)
+		}
+	</section>
+</BaseLayout>
