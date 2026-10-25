@@ -1,0 +1,10 @@
+# Copy to .dev.vars for local `astro dev` / wrangler secrets.
+# Magic-link + email work in stub mode when these are unset.
+
+# RESEND_API_KEY=re_xxx
+# SESSION_SECRET=generate-a-long-random-string
+# PUBLIC_APP_URL=http://localhost:4321
+
+# Stripe (later)
+# STRIPE_SECRET_KEY=sk_test_xxx
+# STRIPE_WEBHOOK_SECRET=whsec_xxx
