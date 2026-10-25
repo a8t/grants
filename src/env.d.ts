@@ -2,8 +2,8 @@
 
 /**
  * Cloudflare bindings + secrets.
- * Run `npm run generate-types` to refresh `worker-configuration.d.ts` (gitignored);
- * this interface keeps local typecheck working without that file.
+ * Optional: run `npm run generate-types` for full workerd runtime typings
+ * (writes gitignored `worker-configuration.d.ts`).
  */
 interface Env {
 	DB: D1Database;
@@ -19,5 +19,6 @@ interface Env {
 }
 
 declare namespace Cloudflare {
-	interface Env extends Env {}
+	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+	interface Env extends globalThis.Env {}
 }

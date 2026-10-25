@@ -72,10 +72,37 @@ Replace the placeholder `database_id` before deploying to Cloudflare; create the
 - Components copied from the neobrutalism registry (Button, Card, Badge, Input)
 - React islands where helpful (`GrantSearchForm`); pages are Astro server routes reading D1
 
-## Deploy (later)
+## Deploy (Cloudflare)
 
-1. Create D1 + R2: `wrangler d1 create grants`, `wrangler r2 bucket create grants-assets`
-2. Update IDs in `wrangler.jsonc`
-3. `wrangler d1 migrations apply grants --remote`
-4. `wrangler d1 execute grants --remote --file=./scripts/seed.sql`
-5. Set secrets; `npm run build && wrangler deploy`
+**Live staging (workers.dev):** https://canada-grant-finder.andy8tran.workers.dev
+
+Resources already provisioned on Andy’s CF account:
+
+| Resource | Name / id |
+| --- | --- |
+| Worker | `canada-grant-finder` |
+| D1 | `grants` (`365e60ad-73fc-4c6e-90ab-666f763da1fe`) |
+| R2 | `grants-assets` |
+| KV (Astro sessions) | auto-provisioned `SESSION` |
+
+Auth for agents / CI: use the **Cloudflare Worker** item in 1Password Homelab (`token` + `account id`). The Cloud Agent env `CLOUDFLARE_API_TOKEN` was a different, under-scoped token — prefer reading from 1P.
+
+```bash
+export CLOUDFLARE_API_TOKEN="$(op read 'op://Homelab/Cloudflare Worker/token')"
+export CLOUDFLARE_ACCOUNT_ID="$(op read 'op://Homelab/Cloudflare Worker/account id')"
+npm run build
+npx wrangler deploy
+# first-time / schema changes:
+npx wrangler d1 migrations apply grants --remote
+npx wrangler d1 execute grants --remote --file=./scripts/seed.sql
+```
+
+### Staging story
+
+Nothing fancy yet — by design for MVP:
+
+1. **Now:** `canada-grant-finder.*.workers.dev` **is** staging (seed data, stub auth). Treat it as shareable preview, not production.
+2. **Next (when we need a prod cut):** add Wrangler `env.staging` / `env.production` with separate worker names + D1 (`grants-staging` / `grants`) + R2 buckets; custom domain only on production.
+3. **PR previews:** optional later via Workers Versions / GitHub — skip until the corpus and auth are real.
+
+Secrets (`RESEND_API_KEY`, etc.) still optional; magic-link stubs without them.
