@@ -9,7 +9,8 @@ UI: **neobrutalism** (yellow palette from [neobrutalism.dev](https://www.neobrut
 - Guest browse / search of seeded Ontario arts grants + grant detail pages
 - Connect directory (stub listed writers)
 - D1 schema for grants, users (seeker individual/org + writer), profiles, saves, subscription fields
-- Better Auth magic-link (Resend) + Stripe behind clear stub interfaces
+- Better Auth magic-link (Resend) + Paddle billing
+- Drizzle ORM schema (`src/lib/db/schema.ts`); migrations applied **only** by Wrangler
 - Daily cron hook (reminder sweep stub)
 
 ## Prerequisites
@@ -32,12 +33,27 @@ npm run dev                      # http://localhost:4321
 | Script | What it does |
 | --- | --- |
 | `npm run dev` | Astro + Cloudflare platformProxy (local D1/R2) |
-| `npm run db:migrate:local` | Apply `migrations/` to local D1 |
+| `npm run db:generate` | Diff `schema.ts` → new SQL under `migrations/` (commit it) |
+| `npm run db:migrate:local` | Apply `migrations/` to local D1 via Wrangler |
+| `npm run db:migrate:remote` | Apply `migrations/` to remote D1 via Wrangler |
 | `npm run db:seed:local` | Load `scripts/seed.sql` |
 | `npm run db:reset:local` | Migrate + seed |
 | `npm run build` | Production Worker build |
 | `npm run preview` | Preview the Worker build locally |
 | `npm run generate-types` | Regenerate `worker-configuration.d.ts` |
+
+### Database (Drizzle → Wrangler)
+
+One pipeline — **do not** use `drizzle-kit migrate` / `push` against D1:
+
+1. Edit `src/lib/db/schema.ts`
+2. `npm run db:generate` → commits a new `migrations/000N_*.sql` (+ `migrations/meta/`)
+3. `npm run db:migrate:local` then `npm run db:migrate:remote`
+4. Deploy the Worker
+
+Wrangler `migrations_dir` already points at `migrations/` (same folder Drizzle writes). Historical `0001`–`0006` are hand-written; `0007_drizzle_baseline.sql` is a **no-op** so staging (already on 0006) doesn’t re-CREATE tables while the Drizzle journal/snapshot stay aligned for future diffs.
+
+Better Auth uses `@better-auth/drizzle-adapter` (`provider: "sqlite"`, `camelCase: true`) over the same `schema.ts` auth tables. Hot paths (`grants.ts`, discovery runner/enrich, writers) also query via Drizzle.
 
 ## Env vars
 
@@ -69,12 +85,13 @@ Wrangler `vars` already set: `APP_NAME`, `DEFAULT_PROVINCE=ON`.
 
 ## Auth (Better Auth)
 
-Magic-link only (no passwords), D1-backed sessions, Resend for delivery. **No** `@better-auth/stripe` — billing is Paddle.
+Magic-link only (no passwords), sessions via **Drizzle → D1**, Resend for delivery. **No** `@better-auth/stripe` — billing is Paddle.
 
 - `GET/POST /api/auth/*` — Better Auth catch-all (`[...all].ts`)
 - `/sign-in` — request a magic link
 - `POST /api/auth/sign-out` — clear session cookie
-- Schema: migration `0002_better_auth.sql` (`user` / `session` / `account` / `verification`)
+- Adapter: `drizzleAdapter(db, { provider: "sqlite", schema, camelCase: true })` in `src/lib/auth.ts`
+- Schema: `user` / `session` / `account` / `verification` in `src/lib/db/schema.ts` (camelCase columns from `0002_better_auth.sql`; already baselined — no new migration for the adapter switch)
 
 ## Billing (Paddle)
 

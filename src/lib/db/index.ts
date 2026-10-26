@@ -1,4 +1,8 @@
+import { drizzle } from 'drizzle-orm/d1';
 import { env } from 'cloudflare:workers';
+import * as schema from './schema';
+
+export * from './schema';
 
 /** Resolve the D1 binding (platformProxy in local `astro dev`). */
 export function getDb(): D1Database {
@@ -10,6 +14,13 @@ export function getDb(): D1Database {
 	}
 	return db;
 }
+
+/** Typed Drizzle client over the Worker D1 binding. */
+export function getDrizzle(db: D1Database = getDb()) {
+	return drizzle(db, { schema });
+}
+
+export type AppDb = ReturnType<typeof getDrizzle>;
 
 export function getEnv(): Env {
 	return env as Env;
