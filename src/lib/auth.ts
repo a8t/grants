@@ -22,12 +22,12 @@ const userAdditionalFields = {
 		defaultValue: 'free',
 		input: false as const,
 	},
-	stripeCustomerId: {
+	paddleCustomerId: {
 		type: 'string' as const,
 		required: false,
 		input: false as const,
 	},
-	stripeSubscriptionId: {
+	paddleSubscriptionId: {
 		type: 'string' as const,
 		required: false,
 		input: false as const,

@@ -28,8 +28,12 @@ interface Env {
 	GRANT_EXTRACTOR_PROVIDER?: string;
 	/** When "1", discovery cron also LLM-enriches new pending proposals (rate-limited). */
 	DISCOVERY_LLM_ENRICH?: string;
-	STRIPE_SECRET_KEY?: string;
-	STRIPE_WEBHOOK_SECRET?: string;
+	/** Paddle Billing (sandbox|production) */
+	PADDLE_API_KEY?: string;
+	PADDLE_WEBHOOK_SECRET?: string;
+	PADDLE_ENV?: string;
+	PADDLE_PRICE_SEEKER?: string;
+	PADDLE_PRICE_WRITER?: string;
 }
 
 declare namespace Cloudflare {
@@ -50,8 +54,8 @@ declare namespace App {
 			accountType?: string | null;
 			seekerKind?: string | null;
 			subscriptionTier?: string | null;
-			stripeCustomerId?: string | null;
-			stripeSubscriptionId?: string | null;
+			paddleCustomerId?: string | null;
+			paddleSubscriptionId?: string | null;
 			subscriptionStatus?: string | null;
 		} | null;
 		session: {

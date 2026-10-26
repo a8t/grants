@@ -1,0 +1,46 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+const stubbed = Astro.url.searchParams.get('stubbed') === '1';
+const kind = Astro.url.searchParams.get('kind') || 'seeker_paid';
+const user = Astro.locals.user;
+---
+
+<BaseLayout title="Billing success — Grant Finder">
+	<section class="mx-auto max-w-xl px-4 pb-16 pt-12">
+		<div class="rounded-base border-2 border-border bg-secondary-background p-8 shadow-shadow">
+			<p class="text-sm text-foreground/70">Paddle</p>
+			<h1 class="mt-2 text-4xl">You're set</h1>
+			<p class="mt-3 text-foreground/85">
+				{
+					kind === 'writer_paid'
+						? 'Writer listing checkout completed. Webhooks flip listed=1 when Paddle confirms.'
+						: 'Seeker paid checkout completed. Webhooks set subscription_tier=paid when Paddle confirms.'
+				}
+			</p>
+			{
+				stubbed && (
+					<p class="mt-4 rounded-base border-2 border-border bg-main/40 px-3 py-2 text-sm">
+						Stub mode — entitlement applied immediately (no Paddle API key).
+					</p>
+				)
+			}
+			{
+				user && (
+					<p class="mt-4 text-sm">
+						Current tier: <span class="font-heading">{user.subscriptionTier || 'free'}</span>
+						{user.subscriptionStatus ? ` · ${user.subscriptionStatus}` : ''}
+					</p>
+				)
+			}
+			<div class="mt-8 flex flex-wrap gap-3">
+				<a href="/pricing" class={cn(buttonVariants(), 'no-underline')}>Back to pricing</a>
+				<a href={kind === 'writer_paid' ? '/connect' : '/grants'} class={cn(buttonVariants({ variant: 'neutral' }), 'no-underline')}>
+					{kind === 'writer_paid' ? 'View Connect' : 'Browse grants'}
+				</a>
+			</div>
+		</div>
+	</section>
+</BaseLayout>

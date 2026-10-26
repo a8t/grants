@@ -215,7 +215,7 @@ INSERT INTO grants (
 -- Stub writer accounts (paid/listed) for Connect directory (Better Auth `user` table)
 INSERT INTO "user" (
   id, name, email, emailVerified, image, createdAt, updatedAt,
-  accountType, seekerKind, subscriptionTier, stripeCustomerId, stripeSubscriptionId, subscriptionStatus
+  accountType, seekerKind, subscriptionTier, paddleCustomerId, paddleSubscriptionId, subscriptionStatus
 ) VALUES
 ('u_writer_maya', 'Maya Chen', 'maya.chen@example.com', 1, NULL, datetime('now'), datetime('now'), 'writer', NULL, 'paid', NULL, NULL, 'active'),
 ('u_writer_jordan', 'Jordan Blake', 'jordan.blake@example.com', 1, NULL, datetime('now'), datetime('now'), 'writer', NULL, 'paid', NULL, NULL, 'active'),
