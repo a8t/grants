@@ -1,0 +1,71 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+if (Astro.locals.user) {
+	return Astro.redirect('/grants');
+}
+
+const next = Astro.url.searchParams.get('next') ?? '/grants';
+---
+
+<BaseLayout title="Sign in · Grant Finder" description="Passwordless magic-link sign-in.">
+	<section class="mx-auto max-w-lg px-4 py-16">
+		<p class="font-heading text-sm uppercase tracking-wide text-foreground/70">Account</p>
+		<h1 class="mt-2 font-heading text-4xl leading-none sm:text-5xl">Sign in</h1>
+		<p class="mt-4 text-base text-foreground/80">
+			Magic link only — no passwords. We’ll email you a one-time link via Resend (or print it in the
+			dev server log when <code class="rounded-base border border-border bg-secondary-background px-1">RESEND_API_KEY</code> is unset).
+		</p>
+
+		<form id="magic-link-form" class="mt-8 flex flex-col gap-4" data-next={next}>
+			<label class="flex flex-col gap-2 text-sm font-medium">
+				<span>Email</span>
+				<input
+					class="h-10 w-full rounded-base border-2 border-border bg-secondary-background px-3 shadow-shadow outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					type="email"
+					name="email"
+					autocomplete="email"
+					required
+					placeholder="you@example.com"
+				/>
+			</label>
+			<button type="submit" class={cn(buttonVariants({ size: 'lg' }), 'w-full sm:w-auto')}>
+				Email me a sign-in link
+			</button>
+			<p id="magic-link-status" class="min-h-6 text-sm text-foreground/80" aria-live="polite"></p>
+		</form>
+	</section>
+</BaseLayout>
+
+<script>
+	import { authClient } from '@/lib/auth-client';
+
+	const form = document.getElementById('magic-link-form') as HTMLFormElement | null;
+	const status = document.getElementById('magic-link-status');
+	if (!form || !status) throw new Error('Sign-in form missing');
+
+	form.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const data = new FormData(form);
+		const email = String(data.get('email') ?? '').trim();
+		const next = form.dataset.next || '/grants';
+		status.textContent = 'Sending link…';
+
+		const { error } = await authClient.signIn.magicLink({
+			email,
+			name: email.split('@')[0] || 'User',
+			callbackURL: next,
+		});
+
+		if (error) {
+			status.textContent = error.message || 'Could not send magic link.';
+			return;
+		}
+
+		status.textContent =
+			'Check your email for the sign-in link. In stub mode, look for [auth:magic-link:stub] in the terminal.';
+		form.reset();
+	});
+</script>

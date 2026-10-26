@@ -1,9 +1,11 @@
 # Copy to .dev.vars for local `astro dev` / wrangler secrets.
-# Magic-link + email work in stub mode when these are unset.
+# Magic-link works in stub mode when RESEND_API_KEY is unset (link logged in terminal).
 
+# BETTER_AUTH_SECRET=generate-with-openssl-rand-base64-32
+# SESSION_SECRET=legacy-fallback-for-BETTER_AUTH_SECRET
 # RESEND_API_KEY=re_xxx
-# SESSION_SECRET=generate-a-long-random-string
 # PUBLIC_APP_URL=http://localhost:4321
+# BETTER_AUTH_URL=http://localhost:4321
 
 # Stripe (later)
 # STRIPE_SECRET_KEY=sk_test_xxx
