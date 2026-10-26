@@ -1,5 +1,6 @@
 -- Core schema for Canada grant finder MVP
 -- Seekers (individual/org) + writers; guest browse needs only grants (+ listed writers)
+-- Auth tables are replaced by Better Auth in 0002_better_auth.sql
 
 CREATE TABLE grants (
   id TEXT PRIMARY KEY,

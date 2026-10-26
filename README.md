@@ -9,7 +9,7 @@ UI: **neobrutalism** (yellow palette from [neobrutalism.dev](https://www.neobrut
 - Guest browse / search of seeded Ontario arts grants + grant detail pages
 - Connect directory (stub listed writers)
 - D1 schema for grants, users (seeker individual/org + writer), profiles, saves, subscription fields
-- Magic-link + Resend + Stripe behind clear stub interfaces
+- Better Auth magic-link (Resend) + Stripe behind clear stub interfaces
 - Daily cron hook (reminder sweep stub)
 
 ## Prerequisites
@@ -45,9 +45,10 @@ Set in `.dev.vars` (local) or Wrangler secrets (prod):
 
 | Var | Required? | Purpose |
 | --- | --- | --- |
-| `RESEND_API_KEY` | No | Send magic-link / notification email. **Stub logs + returns debug link when missing.** |
-| `SESSION_SECRET` | No (later) | Sign session cookies |
-| `PUBLIC_APP_URL` | No | Absolute links in emails (defaults to request origin) |
+| `BETTER_AUTH_SECRET` | Recommended | Session signing (≥32 chars). Falls back to `SESSION_SECRET`, then a insecure local default. |
+| `RESEND_API_KEY` | No | Send magic-link / notification email. **Stub logs the link when missing.** |
+| `PUBLIC_APP_URL` / `BETTER_AUTH_URL` | No | Absolute app origin for magic-link URLs (defaults to request origin) |
+| `SESSION_SECRET` | No | Legacy fallback for `BETTER_AUTH_SECRET` |
 | `STRIPE_SECRET_KEY` | No | Checkout stub until wired |
 | `STRIPE_WEBHOOK_SECRET` | No | Webhooks later |
 
@@ -59,12 +60,14 @@ Wrangler `vars` already set: `APP_NAME`, `DEFAULT_PROVINCE=ON`.
 - **R2** `ASSETS_BUCKET` → `grants-assets` (unused in this slice)
 - **Cron** `0 14 * * *` → `scheduled` handler stub in `src/worker.ts`
 
-Replace the placeholder `database_id` before deploying to Cloudflare; create the D1 DB and R2 bucket with Wrangler, then paste real IDs.
+## Auth (Better Auth)
 
-## Auth / email stubs
+Magic-link only (no passwords), D1-backed sessions, Resend for delivery.
 
-- `POST /api/auth/request-link` — stores hashed magic-link token; emails via Resend or stub
-- `GET /api/auth/verify?token=…` — consumes token (no session cookie yet)
+- `GET/POST /api/auth/*` — Better Auth catch-all (`[...all].ts`)
+- `/sign-in` — request a magic link
+- `POST /api/auth/sign-out` — clear session cookie
+- Schema: migration `0002_better_auth.sql` (`user` / `session` / `account` / `verification`)
 
 ## Design notes
 

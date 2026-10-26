@@ -14,6 +14,7 @@ const {
 } = Astro.props;
 
 const path = Astro.url.pathname;
+const user = Astro.locals.user;
 const nav = [
 	{ href: '/grants', label: 'Browse grants' },
 	{ href: '/connect', label: 'Connect' },
@@ -72,15 +73,29 @@ const nav = [
 							</a>
 						))
 					}
-					<span
-						class={cn(
-							buttonVariants({ variant: 'neutral', size: 'sm' }),
-							'cursor-not-allowed opacity-60 no-underline',
-						)}
-						title="Magic-link sign-in ships next — stubbed for now"
-					>
-						Sign in
-					</span>
+					{
+						user ? (
+							<form method="POST" action="/api/auth/sign-out" class="inline">
+								<button type="submit" class={cn(buttonVariants({ variant: 'neutral', size: 'sm' }))}>
+									Sign out
+									<span class="ml-1 opacity-70">({user.email})</span>
+								</button>
+							</form>
+						) : (
+							<a
+								href="/sign-in"
+								class={cn(
+									buttonVariants({
+										variant: path.startsWith('/sign-in') ? 'default' : 'neutral',
+										size: 'sm',
+									}),
+									'no-underline',
+								)}
+							>
+								Sign in
+							</a>
+						)
+					}
 				</nav>
 			</div>
 		</header>
