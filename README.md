@@ -50,6 +50,9 @@ Set in `.dev.vars` (local) or Wrangler secrets (prod):
 | `RESEND_API_KEY` | No | Send magic-link / notification email. **Stub logs the link when missing.** |
 | `PUBLIC_APP_URL` / `BETTER_AUTH_URL` | No | Absolute app origin for magic-link URLs (defaults to request origin) |
 | `SESSION_SECRET` | No | Legacy fallback for `BETTER_AUTH_SECRET` |
+| `OPENAI_API_KEY` | No | Optional LLM enrich fallback |
+| `GRANT_EXTRACTOR_PROVIDER` | No | `auto` (default) · `workers-ai` · `openai` |
+| `DISCOVERY_LLM_ENRICH` | No | Set `1` to LLM-enrich new proposals during cron (rate-limited) |
 | `STRIPE_SECRET_KEY` | No | Checkout stub until wired |
 | `STRIPE_WEBHOOK_SECRET` | No | Webhooks later |
 
@@ -76,7 +79,7 @@ Magic-link only (no passwords), D1-backed sessions, Resend for delivery.
 - Components copied from the neobrutalism registry (Button, Card, Badge, Input)
 - React islands where helpful (`GrantSearchForm`); pages are Astro server routes reading D1
 
-## Discovery + admin
+## Discovery + LLM enrich
 
 Corpus roadmap (research): project store `docs/grant-sources.md`.
 
@@ -85,8 +88,13 @@ Corpus roadmap (research): project store `docs/grant-sources.md`.
 | Sources registry | D1 `grant_sources` (TAC, OAC, Canadian Heritage adapters) |
 | Staging | D1 `grant_proposals` — pending / approved / rejected |
 | Adapters | `tac`, `oac`, `canadian_heritage` (robots-aware HTML) |
-| Cron | Daily `0 14 * * *` runs enabled sources |
-| Admin | `/admin` — shared secret `ADMIN_SECRET` |
+| LLM extract | `GrantPageExtractor` — Workers AI first, OpenAI fallback |
+| Cron | Daily discovery; optional LLM enrich when `DISCOVERY_LLM_ENRICH=1` |
+| Admin | `/admin` — shared secret `ADMIN_SECRET`; **Enrich with LLM**, edit before Approve |
+
+LLM fields are **never** auto-published. Admin compares scrape vs extract, edits, then Approve.
+
+Workers AI binding (`AI`) is declared in `wrangler.jsonc`. Default model: `@cf/meta/llama-3.1-8b-instruct-fp8` (falls back to `@cf/meta/llama-3.2-3b-instruct`). Set `OPENAI_API_KEY` only if Workers AI quality is insufficient.
 
 ```bash
 # local

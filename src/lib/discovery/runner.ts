@@ -199,6 +199,8 @@ export async function approveProposal(
 		eligibility_summary?: string;
 		applicant_types?: string;
 		province_scope?: string;
+		amount_notes?: string | null;
+		disciplines?: string;
 	},
 ): Promise<{ ok: true; grantId: string } | { ok: false; error: string }> {
 	const proposal = await db
@@ -213,13 +215,30 @@ export async function approveProposal(
 			deadline_notes: string | null;
 			raw_excerpt: string | null;
 			applicant_types: string;
+			amount_notes: string | null;
 			province_scope: string;
 			disciplines: string;
 			status: string;
+			llm_extract_json: string | null;
 		}>();
 
 	if (!proposal) return { ok: false, error: 'Proposal not found' };
 	if (proposal.status === 'approved') return { ok: false, error: 'Already approved' };
+
+	let amountMin: number | null = null;
+	let amountMax: number | null = null;
+	if (proposal.llm_extract_json) {
+		try {
+			const ex = JSON.parse(proposal.llm_extract_json) as {
+				amount_min?: number | null;
+				amount_max?: number | null;
+			};
+			amountMin = typeof ex.amount_min === 'number' ? ex.amount_min : null;
+			amountMax = typeof ex.amount_max === 'number' ? ex.amount_max : null;
+		} catch {
+			/* ignore */
+		}
+	}
 
 	const title = edits?.title?.trim() || proposal.title;
 	const funder = edits?.funder?.trim() || proposal.funder;
@@ -236,6 +255,11 @@ export async function approveProposal(
 		'See funder program page for full eligibility.';
 	const applicant_types = edits?.applicant_types || proposal.applicant_types || 'both';
 	const province_scope = edits?.province_scope || proposal.province_scope || 'ON';
+	const amount_notes =
+		edits && 'amount_notes' in edits
+			? edits.amount_notes ?? null
+			: proposal.amount_notes;
+	const disciplines = edits?.disciplines || proposal.disciplines || '[]';
 	const status = /rolling/i.test(deadline_notes || '') ? 'rolling' : 'open';
 
 	let slug = slugify(title);
@@ -252,7 +276,7 @@ export async function approveProposal(
         id, slug, name, funder, applicant_types, eligibility_summary,
         amount_min, amount_max, amount_notes, deadline_at, deadline_notes,
         url, province_scope, disciplines, status
-      ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		)
 		.bind(
 			grantId,
@@ -261,11 +285,14 @@ export async function approveProposal(
 			funder,
 			applicant_types,
 			eligibility,
+			amountMin,
+			amountMax,
+			amount_notes,
 			deadline_at,
 			deadline_notes,
 			url,
 			province_scope,
-			proposal.disciplines || '[]',
+			disciplines,
 			status,
 		)
 		.run();
@@ -274,7 +301,7 @@ export async function approveProposal(
 		.prepare(
 			`UPDATE grant_proposals SET status = 'approved', published_grant_id = ?, reviewed_at = datetime('now'),
         title = ?, funder = ?, url = ?, deadline_at = ?, deadline_notes = ?, raw_excerpt = ?,
-        applicant_types = ?, province_scope = ?, updated_at = datetime('now')
+        applicant_types = ?, province_scope = ?, amount_notes = ?, updated_at = datetime('now')
        WHERE id = ?`,
 		)
 		.bind(
@@ -287,6 +314,7 @@ export async function approveProposal(
 			eligibility,
 			applicant_types,
 			province_scope,
+			amount_notes,
 			proposalId,
 		)
 		.run();
