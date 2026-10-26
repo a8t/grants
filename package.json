@@ -17,7 +17,11 @@
     "db:seed:local": "wrangler d1 execute grants --local --file=./scripts/seed.sql",
     "db:seed:more:local": "wrangler d1 execute grants --local --file=./scripts/seed-more.sql",
     "db:seed:more:remote": "wrangler d1 execute grants --remote --file=./scripts/seed-more.sql",
-    "db:reset:local": "npm run db:migrate:local && npm run db:seed:local && npm run db:seed:more:local"
+    "db:reset:local": "npm run db:migrate:local && npm run db:seed:local && npm run db:seed:more:local",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.4.2",
@@ -40,7 +44,9 @@
     "wrangler": "^4.152.0"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.8.41",
     "@types/node": "^26.6.5",
-    "drizzle-kit": "^0.31.11"
+    "drizzle-kit": "^0.31.11",
+    "vitest": "^3.2.4"
   }
 }
