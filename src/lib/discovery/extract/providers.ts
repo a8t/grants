@@ -14,8 +14,11 @@ Return ONLY a single JSON object matching this schema (no markdown):
 ${EXTRACT_JSON_SCHEMA_HINT}
 
 Rules:
-- Do NOT invent deadlines. If unclear, set deadline_at to null and confidence <= 0.4.
-- deadline_at must be YYYY-MM-DD or null. Put free-text dates in deadline_notes.
+- Do NOT invent deadlines. Only real calendar dates in deadlines[].
+- Each deadlines[].date must be YYYY-MM-DD. Optional label: "intake 1", "LOI", "final", etc.
+- If multiple intakes/deadlines appear on the page, include each as a separate deadlines[] entry.
+- Never put prose ("rolling", "early 2026", "see website") in deadlines[].date — use deadline_notes instead and deadlines: [].
+- If unclear, deadlines: [] and confidence <= 0.4.
 - amount_min/amount_max are CAD numbers without currency symbols, or null.
 - applicant_types: individual | organization | both | null.
 - province_scope: ON (Ontario-only), CA (national / open to ON), other, or null.

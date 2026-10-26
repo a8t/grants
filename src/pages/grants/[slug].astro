@@ -1,12 +1,13 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import DeadlineChips from '@/components/DeadlineChips.astro';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { getDb, parseJsonArray } from '@/lib/db';
 import {
 	applicantLabel,
 	formatAmount,
-	formatDeadline,
+	grantDeadlines,
 	getGrantBySlug,
 } from '@/lib/grants';
 import { cn } from '@/lib/utils';
@@ -65,8 +66,15 @@ const disciplines = grant ? parseJsonArray(grant.disciplines) : [];
 
 						<dl class="mt-8 grid gap-4 sm:grid-cols-2">
 							<div class="rounded-base border-2 border-border bg-main/30 p-4">
-								<dt class="font-heading text-sm">Deadline</dt>
-								<dd class="mt-1 text-lg">{formatDeadline(grant)}</dd>
+								<dt class="font-heading text-sm">Deadline{grantDeadlines(grant).length > 1 ? 's' : ''}</dt>
+								<dd class="mt-2">
+									<DeadlineChips
+										deadlines={grantDeadlines(grant)}
+										notes={grant.deadline_notes}
+										rolling={grant.status === 'rolling'}
+										size="md"
+									/>
+								</dd>
 							</div>
 							<div class="rounded-base border-2 border-border bg-main/30 p-4">
 								<dt class="font-heading text-sm">Amount</dt>

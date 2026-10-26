@@ -66,11 +66,11 @@ export function createGrantPageExtractor(env: Env): GrantPageExtractor {
 				}
 
 				// Guard: never invent deadlines — already enforced in schema parse
-				if (!result.extract.deadline_at && result.extract.confidence > 0.7) {
+				if (!result.extract.deadlines.length && result.extract.confidence > 0.7) {
 					result.extract.confidence = Math.min(result.extract.confidence, 0.55);
 					result.extract.notes = [
 						result.extract.notes,
-						'No clear deadline_at; confidence capped',
+						'No clear ISO deadlines; confidence capped',
 					]
 						.filter(Boolean)
 						.join(' · ');
@@ -99,7 +99,7 @@ export function mergeExtractIntoProposalFields(
 	current: {
 		title: string;
 		funder: string;
-		deadline_at: string | null;
+		deadlines_json: string | null;
 		deadline_notes: string | null;
 		raw_excerpt: string | null;
 		applicant_types: string;
@@ -114,8 +114,10 @@ export function mergeExtractIntoProposalFields(
 	return {
 		title: prefer && extract.title ? extract.title : current.title,
 		funder: prefer && extract.funder ? extract.funder : current.funder,
-		deadline_at:
-			prefer && extract.deadline_at != null ? extract.deadline_at : current.deadline_at,
+		deadlines:
+			prefer && extract.deadlines.length
+				? extract.deadlines
+				: null,
 		deadline_notes:
 			prefer && extract.deadline_notes
 				? extract.deadline_notes

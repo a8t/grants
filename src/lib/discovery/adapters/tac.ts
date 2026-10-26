@@ -1,3 +1,4 @@
+import { englishDateToIso, normalizeDeadlines, type GrantDeadline } from '@/lib/deadlines';
 import { canonicalizeUrl, politeFetch, stripTags } from '../fetch';
 import type { AdapterResult, DiscoveryAdapter, DiscoveredGrant } from '../types';
 
@@ -13,32 +14,36 @@ function mapApplicants(raw: string | undefined): DiscoveredGrant['applicantTypes
 	return 'both';
 }
 
-function parseDeadline(text: string): { at: string | null; notes: string | null; rolling: boolean } {
+function parseDeadlinesFromText(text: string): {
+	deadlines: GrantDeadline[];
+	notes: string | null;
+	rolling: boolean;
+} {
 	const t = text.trim();
-	if (/rolling/i.test(t)) return { at: null, notes: 'Rolling deadline', rolling: true };
-	const m = t.match(
-		/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/i,
-	);
-	if (m) {
-		const months: Record<string, string> = {
-			january: '01',
-			february: '02',
-			march: '03',
-			april: '04',
-			may: '05',
-			june: '06',
-			july: '07',
-			august: '08',
-			september: '09',
-			october: '10',
-			november: '11',
-			december: '12',
-		};
-		const mm = months[m[1].toLowerCase()];
-		const dd = m[2].padStart(2, '0');
-		return { at: `${m[3]}-${mm}-${dd}`, notes: t, rolling: false };
+	if (!t) return { deadlines: [], notes: null, rolling: false };
+	if (/rolling/i.test(t)) return { deadlines: [], notes: 'Rolling deadline', rolling: true };
+
+	const deadlines: GrantDeadline[] = [];
+	const re =
+		/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/gi;
+	let m: RegExpExecArray | null;
+	let idx = 0;
+	while ((m = re.exec(t))) {
+		const iso = englishDateToIso(m[1], m[2], m[3]);
+		if (iso) {
+			idx += 1;
+			deadlines.push({
+				date: iso,
+				label: idx > 1 ? `intake ${idx}` : null,
+			});
+		}
 	}
-	return { at: null, notes: t || null, rolling: false };
+	const normalized = normalizeDeadlines(deadlines);
+	return {
+		deadlines: normalized,
+		notes: normalized.length ? null : t,
+		rolling: false,
+	};
 }
 
 export const tacAdapter: DiscoveryAdapter = {
@@ -75,12 +80,13 @@ export const tacAdapter: DiscoveryAdapter = {
 			);
 			const applicants = (block.match(/data-grants_applicant_types="([^"]*)"/i) || [])[1];
 			const url = canonicalizeUrl(href);
-			const dl = parseDeadline(deadlineRaw);
+			const dl = parseDeadlinesFromText(deadlineRaw);
 			items.push({
 				title,
 				funder: 'Toronto Arts Council',
 				url,
-				deadlineAt: dl.at,
+				deadlines: dl.deadlines,
+				deadlineAt: dl.deadlines[0]?.date ?? null,
 				deadlineNotes: dl.notes,
 				rawExcerpt: desc || null,
 				applicantTypes: mapApplicants(applicants),

@@ -1,11 +1,21 @@
 /**
  * Strict JSON shape returned by GrantPageExtractor.
- * Models must not invent deadlines — use null + low confidence when unclear.
+ * Deadlines are ISO dates only — never invent; use [] + notes for rolling/TBD.
  */
+import {
+	normalizeDeadlines,
+	type GrantDeadline,
+	isValidIsoDate,
+} from '@/lib/deadlines';
+
+export type { GrantDeadline };
+
 export type GrantExtract = {
 	title: string | null;
 	funder: string | null;
-	deadline_at: string | null;
+	/** Structured calendar deadlines only (YYYY-MM-DD). */
+	deadlines: GrantDeadline[];
+	/** Rolling / TBD / free-text — not a calendar date. */
 	deadline_notes: string | null;
 	eligibility_summary: string | null;
 	amount_min: number | null;
@@ -22,7 +32,7 @@ export type GrantExtract = {
 export const EXTRACT_JSON_SCHEMA_HINT = `{
   "title": string|null,
   "funder": string|null,
-  "deadline_at": "YYYY-MM-DD"|null,
+  "deadlines": [{"date":"YYYY-MM-DD","label":"intake 1"|"LOI"|"final"|string|null}],
   "deadline_notes": string|null,
   "eligibility_summary": string|null,
   "amount_min": number|null,
@@ -40,7 +50,7 @@ export function emptyExtract(partial?: Partial<GrantExtract>): GrantExtract {
 	return {
 		title: null,
 		funder: null,
-		deadline_at: null,
+		deadlines: [],
 		deadline_notes: null,
 		eligibility_summary: null,
 		amount_min: null,
@@ -54,6 +64,43 @@ export function emptyExtract(partial?: Partial<GrantExtract>): GrantExtract {
 		notes: null,
 		...partial,
 	};
+}
+
+function coerceDeadlinesField(obj: Record<string, unknown>): {
+	deadlines: GrantDeadline[];
+	notesExtra: string | null;
+	capped: boolean;
+} {
+	let notesExtra: string | null = null;
+	let capped = false;
+
+	// Preferred: deadlines array
+	if (Array.isArray(obj.deadlines)) {
+		const normalized = normalizeDeadlines(obj.deadlines);
+		const rawLen = obj.deadlines.length;
+		if (rawLen > 0 && normalized.length === 0) {
+			capped = true;
+			notesExtra = 'All model deadline entries invalid; cleared';
+		} else if (normalized.length < rawLen) {
+			capped = true;
+			notesExtra = 'Dropped non-ISO deadline entries';
+		}
+		return { deadlines: normalized, notesExtra, capped };
+	}
+
+	// Legacy single deadline_at (older prompts / cached responses)
+	const legacy = obj.deadline_at;
+	if (typeof legacy === 'string' && legacy.trim()) {
+		const t = legacy.trim();
+		if (isValidIsoDate(t)) {
+			return { deadlines: [{ date: t, label: null }], notesExtra: null, capped: false };
+		}
+		capped = true;
+		notesExtra = `Invalid legacy deadline_at "${t}" cleared`;
+		return { deadlines: [], notesExtra, capped };
+	}
+
+	return { deadlines: [], notesExtra: null, capped: false };
 }
 
 export function parseExtractJson(raw: string): GrantExtract {
@@ -85,34 +132,18 @@ export function parseExtractJson(raw: string): GrantExtract {
 	let confidence = num(obj.confidence) ?? 0;
 	confidence = Math.max(0, Math.min(1, confidence));
 
-	const deadlineAt = str(obj.deadline_at);
-	if (deadlineAt && !/^\d{4}-\d{2}-\d{2}$/.test(deadlineAt)) {
-		// Invalid date format → treat as unknown (do not invent)
-		return emptyExtract({
-			title: str(obj.title),
-			funder: str(obj.funder),
-			deadline_at: null,
-			deadline_notes: str(obj.deadline_notes) ?? deadlineAt,
-			eligibility_summary: str(obj.eligibility_summary),
-			amount_min: num(obj.amount_min),
-			amount_max: num(obj.amount_max),
-			amount_notes: str(obj.amount_notes),
-			applicant_types: applicantTypes,
-			disciplines: Array.isArray(obj.disciplines)
-				? obj.disciplines.map(String).slice(0, 12)
-				: [],
-			province_scope: provinceScope,
-			confidence: Math.min(confidence, 0.4),
-			quotes: Array.isArray(obj.quotes) ? obj.quotes.map(String).slice(0, 5) : [],
-			notes: str(obj.notes) ?? 'Invalid deadline_at format; cleared to null',
-		});
+	const { deadlines, notesExtra, capped } = coerceDeadlinesField(obj);
+	if (capped || deadlines.length === 0) {
+		confidence = Math.min(confidence, deadlines.length === 0 ? 0.4 : 0.55);
 	}
+
+	const deadlineNotes = [str(obj.deadline_notes), notesExtra].filter(Boolean).join(' · ') || null;
 
 	return emptyExtract({
 		title: str(obj.title),
 		funder: str(obj.funder),
-		deadline_at: deadlineAt,
-		deadline_notes: str(obj.deadline_notes),
+		deadlines,
+		deadline_notes: deadlineNotes,
 		eligibility_summary: str(obj.eligibility_summary),
 		amount_min: num(obj.amount_min),
 		amount_max: num(obj.amount_max),
