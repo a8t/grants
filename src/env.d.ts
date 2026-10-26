@@ -5,10 +5,15 @@
  * Optional: run `npm run generate-types` for full workerd runtime typings
  * (writes gitignored `worker-configuration.d.ts`).
  */
+type Ai = {
+	run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
+};
+
 interface Env {
 	DB: D1Database;
 	ASSETS_BUCKET: R2Bucket;
 	ASSETS: Fetcher;
+	AI?: Ai;
 	APP_NAME: string;
 	DEFAULT_PROVINCE: string;
 	ADMIN_SECRET?: string;
@@ -18,6 +23,11 @@ interface Env {
 	BETTER_AUTH_SECRET?: string;
 	BETTER_AUTH_URL?: string;
 	PUBLIC_APP_URL?: string;
+	OPENAI_API_KEY?: string;
+	/** auto (default) | workers-ai | openai */
+	GRANT_EXTRACTOR_PROVIDER?: string;
+	/** When "1", discovery cron also LLM-enriches new pending proposals (rate-limited). */
+	DISCOVERY_LLM_ENRICH?: string;
 	STRIPE_SECRET_KEY?: string;
 	STRIPE_WEBHOOK_SECRET?: string;
 }

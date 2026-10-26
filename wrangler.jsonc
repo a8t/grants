@@ -25,11 +25,15 @@
 			"bucket_name": "grants-assets"
 		}
 	],
+	"ai": {
+		"binding": "AI"
+	},
 	"triggers": {
 		"crons": ["0 14 * * *"]
 	},
 	"vars": {
 		"APP_NAME": "Grant Finder",
-		"DEFAULT_PROVINCE": "ON"
+		"DEFAULT_PROVINCE": "ON",
+		"GRANT_EXTRACTOR_PROVIDER": "auto"
 	}
 }
