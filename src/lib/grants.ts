@@ -1,3 +1,4 @@
+import { and, asc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import {
 	deadlinesFromLegacy,
 	formatIsoDateEnCa,
@@ -8,12 +9,37 @@ import {
 	todayToronto,
 	type GrantDeadline,
 } from './deadlines';
+import { getDrizzle, grants } from './db';
 import type { Grant, GrantListFilters } from './types';
 
 const PROVINCE_ALIASES: Record<string, string[]> = {
 	ON: ['ON', 'CA'],
 	CA: ['CA'],
 };
+
+/** Map Drizzle camelCase row → app Grant (snake_case D1 shape). */
+export function toGrant(row: typeof grants.$inferSelect): Grant {
+	return {
+		id: row.id,
+		slug: row.slug,
+		name: row.name,
+		funder: row.funder,
+		applicant_types: row.applicantTypes as Grant['applicant_types'],
+		eligibility_summary: row.eligibilitySummary,
+		amount_min: row.amountMin,
+		amount_max: row.amountMax,
+		amount_notes: row.amountNotes,
+		deadline_at: row.deadlineAt,
+		deadline_notes: row.deadlineNotes,
+		deadlines_json: row.deadlinesJson,
+		url: row.url,
+		province_scope: row.provinceScope,
+		disciplines: row.disciplines,
+		status: row.status as Grant['status'],
+		created_at: row.createdAt,
+		updated_at: row.updatedAt,
+	};
+}
 
 /** Resolve structured deadlines for a grant row (JSON or legacy deadline_at). */
 export function grantDeadlines(grant: Grant): GrantDeadline[] {
@@ -26,23 +52,29 @@ export async function listGrants(
 	db: D1Database,
 	filters: GrantListFilters = {},
 ): Promise<Grant[]> {
-	const clauses: string[] = [];
-	const binds: Array<string> = [];
+	const drizzle = getDrizzle(db);
+	const clauses = [];
 
 	const province = filters.province ?? 'ON';
 	const scopes = PROVINCE_ALIASES[province] ?? [province];
-	clauses.push(`province_scope IN (${scopes.map(() => '?').join(', ')})`);
-	binds.push(...scopes);
+	clauses.push(inArray(grants.provinceScope, scopes));
 
 	if (filters.q?.trim()) {
-		clauses.push('(name LIKE ? OR funder LIKE ? OR eligibility_summary LIKE ? OR disciplines LIKE ?)');
-		const like = `%${filters.q.trim()}%`;
-		binds.push(like, like, like, like);
+		const likePat = `%${filters.q.trim()}%`;
+		clauses.push(
+			or(
+				like(grants.name, likePat),
+				like(grants.funder, likePat),
+				like(grants.eligibilitySummary, likePat),
+				like(grants.disciplines, likePat),
+			)!,
+		);
 	}
 
 	if (filters.applicant && filters.applicant !== 'all') {
-		clauses.push("(applicant_types = ? OR applicant_types = 'both')");
-		binds.push(filters.applicant);
+		clauses.push(
+			or(eq(grants.applicantTypes, filters.applicant), eq(grants.applicantTypes, 'both'))!,
+		);
 	}
 
 	// Open/closed is computed in JS vs America/Toronto "today" + deadlines_json
@@ -51,22 +83,21 @@ export async function listGrants(
 	const statusFilter = filters.status;
 
 	if (statusFilter === 'rolling') {
-		clauses.push("status = 'rolling'");
+		clauses.push(eq(grants.status, 'rolling'));
 	}
 
-	const sql = `
-    SELECT * FROM grants
-    WHERE ${clauses.join(' AND ')}
-    ORDER BY
-      CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END,
-      deadline_at ASC,
-      name ASC
-  `;
-
-	const result = await db.prepare(sql).bind(...binds).all<Grant>();
-	const rows = result.results ?? [];
+	const rows = await drizzle
+		.select()
+		.from(grants)
+		.where(and(...clauses))
+		.orderBy(
+			sql`CASE WHEN ${grants.deadlineAt} IS NULL THEN 1 ELSE 0 END`,
+			asc(grants.deadlineAt),
+			asc(grants.name),
+		);
 
 	return rows
+		.map(toGrant)
 		.filter((g) => {
 			const deadlines = grantDeadlines(g);
 			if (statusFilter === 'rolling') return g.status === 'rolling';
@@ -93,11 +124,14 @@ export async function getGrantBySlug(
 	db: D1Database,
 	slug: string,
 ): Promise<Grant | null> {
-	const row = await db
-		.prepare('SELECT * FROM grants WHERE slug = ? LIMIT 1')
-		.bind(slug)
-		.first<Grant>();
-	return row ?? null;
+	const drizzle = getDrizzle(db);
+	const row = await drizzle
+		.select()
+		.from(grants)
+		.where(eq(grants.slug, slug))
+		.limit(1)
+		.then((r) => r[0]);
+	return row ? toGrant(row) : null;
 }
 
 export function formatAmount(grant: Grant): string {

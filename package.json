@@ -11,6 +11,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "generate-types": "wrangler types",
+    "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply grants --local",
     "db:migrate:remote": "wrangler d1 migrations apply grants --remote",
     "db:seed:local": "wrangler d1 execute grants --local --file=./scripts/seed.sql",
@@ -29,6 +30,7 @@
     "better-auth": "^1.7.13",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.0",
+    "drizzle-orm": "^0.45.4",
     "lucide-react": "^0.544.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -37,6 +39,7 @@
     "wrangler": "^4.152.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5"
+    "@types/node": "^26.6.5",
+    "drizzle-kit": "^0.31.11"
   }
 }
