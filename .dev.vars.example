@@ -10,6 +10,11 @@ ADMIN_SECRET=dev-admin-secret-change-me
 # PUBLIC_APP_URL=http://localhost:4321
 # BETTER_AUTH_URL=http://localhost:4321
 
+# LLM enrich — Workers AI is default when AI binding is present.
+# OPENAI_API_KEY=sk-...
+# GRANT_EXTRACTOR_PROVIDER=workers-ai|openai|auto
+# DISCOVERY_LLM_ENRICH=1
+
 # Stripe (later)
 # STRIPE_SECRET_KEY=sk_test_xxx
 # STRIPE_WEBHOOK_SECRET=whsec_xxx

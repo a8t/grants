@@ -1,8 +1,9 @@
 import { handle } from '@astrojs/cloudflare/handler';
+import { enrichPendingBatch } from './lib/discovery/enrich';
 import { runAllEnabledSources } from './lib/discovery/runner';
 
 /**
- * Custom Worker entry: Astro fetch + daily discovery cron.
+ * Astro fetch + daily discovery cron (+ optional LLM enrich).
  */
 export default {
 	async fetch(request, env, ctx) {
@@ -19,6 +20,18 @@ export default {
 					console.log('[cron] discovery done', JSON.stringify(summaries));
 				} catch (e) {
 					console.error('[cron] discovery failed', e);
+				}
+
+				if (env.DISCOVERY_LLM_ENRICH === '1') {
+					try {
+						const enrich = await enrichPendingBatch(env.DB, env, {
+							limit: 8,
+							delayMs: 2000,
+						});
+						console.log('[cron] llm enrich', JSON.stringify(enrich));
+					} catch (e) {
+						console.error('[cron] llm enrich failed', e);
+					}
 				}
 			})(),
 		);
