@@ -53,7 +53,7 @@ One pipeline — **do not** use `drizzle-kit migrate` / `push` against D1:
 
 Wrangler `migrations_dir` already points at `migrations/` (same folder Drizzle writes). Historical `0001`–`0006` are hand-written; `0007_drizzle_baseline.sql` is a **no-op** so staging (already on 0006) doesn’t re-CREATE tables while the Drizzle journal/snapshot stay aligned for future diffs.
 
-Better Auth still uses the native D1 binding for now. Hot paths (`grants.ts`, discovery runner/enrich) query via Drizzle.
+Better Auth uses `@better-auth/drizzle-adapter` (`provider: "sqlite"`, `camelCase: true`) over the same `schema.ts` auth tables. Hot paths (`grants.ts`, discovery runner/enrich, writers) also query via Drizzle.
 
 ## Env vars
 
@@ -85,12 +85,13 @@ Wrangler `vars` already set: `APP_NAME`, `DEFAULT_PROVINCE=ON`.
 
 ## Auth (Better Auth)
 
-Magic-link only (no passwords), D1-backed sessions, Resend for delivery. **No** `@better-auth/stripe` — billing is Paddle.
+Magic-link only (no passwords), sessions via **Drizzle → D1**, Resend for delivery. **No** `@better-auth/stripe` — billing is Paddle.
 
 - `GET/POST /api/auth/*` — Better Auth catch-all (`[...all].ts`)
 - `/sign-in` — request a magic link
 - `POST /api/auth/sign-out` — clear session cookie
-- Schema: migration `0002_better_auth.sql` (`user` / `session` / `account` / `verification`)
+- Adapter: `drizzleAdapter(db, { provider: "sqlite", schema, camelCase: true })` in `src/lib/auth.ts`
+- Schema: `user` / `session` / `account` / `verification` in `src/lib/db/schema.ts` (camelCase columns from `0002_better_auth.sql`; already baselined — no new migration for the adapter switch)
 
 ## Billing (Paddle)
 

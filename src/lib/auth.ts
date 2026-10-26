@@ -1,5 +1,8 @@
 import { betterAuth } from 'better-auth';
+import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { magicLink } from 'better-auth/plugins';
+import { getDrizzle } from './db';
+import * as schema from './db/schema';
 import { createEmailSender } from './email';
 
 export type Auth = ReturnType<typeof createAuth>;
@@ -40,8 +43,11 @@ const userAdditionalFields = {
 };
 
 /**
- * Better Auth factory — pass Worker bindings each request (D1 / secrets live on `env`).
+ * Better Auth factory — Drizzle adapter over D1 (sqlite).
  * Magic-link only; Resend via EmailSender (stub logs the URL when RESEND_API_KEY is unset).
+ *
+ * Auth tables live in `schema.ts` with camelCase column names matching migration 0002
+ * (`emailVerified`, `createdAt`, …). Pass `camelCase: true` so the adapter matches.
  */
 export function createAuth(env: Env, opts?: { baseURL?: string }) {
 	const secret =
@@ -50,9 +56,16 @@ export function createAuth(env: Env, opts?: { baseURL?: string }) {
 		'dev-only-change-me-better-auth-secret!!';
 	const baseURL = opts?.baseURL ?? env.BETTER_AUTH_URL ?? env.PUBLIC_APP_URL;
 	const emailSender = createEmailSender(env);
+	const db = getDrizzle(env.DB);
 
 	return betterAuth({
-		database: env.DB,
+		database: drizzleAdapter(db, {
+			provider: 'sqlite',
+			schema,
+			camelCase: true,
+			// D1 does not support interactive transactions the way the adapter expects.
+			transaction: false,
+		}),
 		secret,
 		baseURL,
 		trustedOrigins: baseURL ? [baseURL] : undefined,
@@ -102,7 +115,7 @@ export function createAuth(env: Env, opts?: { baseURL?: string }) {
 		],
 		advanced: {
 			database: {
-				// D1 migrations are applied via wrangler; skip runtime probe noise in Workers.
+				// Migrations are applied via Wrangler; skip runtime probe noise in Workers.
 				validateSchema: false,
 			},
 		},
