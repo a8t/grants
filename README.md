@@ -45,6 +45,7 @@ Set in `.dev.vars` (local) or Wrangler secrets (prod):
 
 | Var | Required? | Purpose |
 | --- | --- | --- |
+| `ADMIN_SECRET` | For `/admin` | Shared secret for discovery admin |
 | `BETTER_AUTH_SECRET` | Recommended | Session signing (≥32 chars). Falls back to `SESSION_SECRET`, then a insecure local default. |
 | `RESEND_API_KEY` | No | Send magic-link / notification email. **Stub logs the link when missing.** |
 | `PUBLIC_APP_URL` / `BETTER_AUTH_URL` | No | Absolute app origin for magic-link URLs (defaults to request origin) |
@@ -75,9 +76,30 @@ Magic-link only (no passwords), D1-backed sessions, Resend for delivery.
 - Components copied from the neobrutalism registry (Button, Card, Badge, Input)
 - React islands where helpful (`GrantSearchForm`); pages are Astro server routes reading D1
 
+## Discovery + admin
+
+Corpus roadmap (research): project store `docs/grant-sources.md`.
+
+| Piece | Detail |
+| --- | --- |
+| Sources registry | D1 `grant_sources` (TAC, OAC, Canadian Heritage adapters) |
+| Staging | D1 `grant_proposals` — pending / approved / rejected |
+| Adapters | `tac`, `oac`, `canadian_heritage` (robots-aware HTML) |
+| Cron | Daily `0 14 * * *` runs enabled sources |
+| Admin | `/admin` — shared secret `ADMIN_SECRET` |
+
+```bash
+# local
+echo 'ADMIN_SECRET=dev-admin-secret-change-me' >> .dev.vars
+npm run db:reset:local
+npm run dev
+# open http://localhost:4321/admin/login
+```
+
 ## Deploy (Cloudflare)
 
-**Live staging (workers.dev):** https://canada-grant-finder.andy8tran.workers.dev
+**Live staging (workers.dev):** https://canada-grant-finder.andy8tran.workers.dev  
+**Admin:** https://canada-grant-finder.andy8tran.workers.dev/admin/login
 
 Resources already provisioned on Andy’s CF account:
 
@@ -98,6 +120,8 @@ npx wrangler deploy
 # first-time / schema changes:
 npx wrangler d1 migrations apply grants --remote
 npx wrangler d1 execute grants --remote --file=./scripts/seed.sql
+npx wrangler d1 execute grants --remote --file=./scripts/seed-more.sql
+npx wrangler secret put ADMIN_SECRET
 ```
 
 ### Staging story

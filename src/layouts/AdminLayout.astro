@@ -1,0 +1,66 @@
+---
+import '../styles/global.css';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+type Props = { title?: string };
+const { title = 'Admin — Grant Finder' } = Astro.props;
+const path = Astro.url.pathname;
+const nav = [
+	{ href: '/admin', label: 'Overview' },
+	{ href: '/admin/sources', label: 'Sources' },
+	{ href: '/admin/proposals', label: 'Review queue' },
+];
+---
+
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex,nofollow" />
+		<title>{title}</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body class="scrollbar antialiased">
+		<header class="border-b-2 border-border bg-secondary-background">
+			<div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
+				<a href="/admin" class="font-heading text-xl no-underline">Admin · Grant Finder</a>
+				<nav class="flex flex-wrap gap-2">
+					{
+						nav.map((item) => (
+							<a
+								href={item.href}
+								class={cn(
+									buttonVariants({
+										variant: path === item.href ? 'default' : 'neutral',
+										size: 'sm',
+									}),
+									'no-underline',
+								)}
+							>
+								{item.label}
+							</a>
+						))
+					}
+					<a href="/grants" class={cn(buttonVariants({ variant: 'neutral', size: 'sm' }), 'no-underline')}>
+						Public site
+					</a>
+					<form method="post" action="/admin/logout">
+						<button type="submit" class={cn(buttonVariants({ variant: 'neutral', size: 'sm' }))}>
+							Log out
+						</button>
+					</form>
+				</nav>
+			</div>
+		</header>
+		<main class="mx-auto max-w-6xl px-4 py-8">
+			<slot />
+		</main>
+	</body>
+</html>
