@@ -1,0 +1,72 @@
+---
+import '../../styles/global.css';
+import { adminCookieHeader, getAdminSecret, isAdminAuthed, timingSafeEqual } from '@/lib/admin';
+import { getEnv } from '@/lib/db';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+const env = getEnv();
+if (isAdminAuthed(Astro.request, env)) {
+	return Astro.redirect('/admin');
+}
+
+let error: string | null = null;
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const secret = String(form.get('secret') ?? '');
+	const expected = getAdminSecret(env);
+	if (!expected) {
+		error = 'ADMIN_SECRET is not set on this environment.';
+	} else if (!timingSafeEqual(secret, expected)) {
+		error = 'Wrong secret.';
+	} else {
+		return new Response(null, {
+			status: 302,
+			headers: {
+				Location: '/admin',
+				'Set-Cookie': adminCookieHeader(expected),
+			},
+		});
+	}
+}
+---
+
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<title>Admin login</title>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body class="scrollbar antialiased">
+		<main class="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
+			<div class="rounded-base border-2 border-border bg-secondary-background p-6 shadow-shadow">
+				<h1 class="text-3xl">Admin</h1>
+				<p class="mt-2 text-sm text-foreground/80">Shared secret for now (magic-link admin later).</p>
+				{
+					error && (
+						<p class="mt-4 rounded-base border-2 border-border bg-[#ff4d50] px-3 py-2 text-sm">{error}</p>
+					)
+				}
+				<form method="post" class="mt-6 flex flex-col gap-3">
+					<label class="flex flex-col gap-1.5 text-sm">
+						<span class="font-heading">ADMIN_SECRET</span>
+						<input
+							type="password"
+							name="secret"
+							required
+							class="h-10 rounded-base border-2 border-border bg-background px-3"
+							autocomplete="current-password"
+						/>
+					</label>
+					<button type="submit" class={cn(buttonVariants({ size: 'lg' }))}>Enter</button>
+				</form>
+			</div>
+		</main>
+	</body>
+</html>

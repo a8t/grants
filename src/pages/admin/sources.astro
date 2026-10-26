@@ -1,0 +1,79 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { isAdminAuthed } from '@/lib/admin';
+import { getDb, getEnv } from '@/lib/db';
+import { cn } from '@/lib/utils';
+
+const env = getEnv();
+if (!isAdminAuthed(Astro.request, env)) {
+	return Astro.redirect('/admin/login');
+}
+
+const db = getDb();
+const sources = await db
+	.prepare(
+		`SELECT id, name, base_url, adapter_key, enabled, last_run_at, last_status, last_error, last_found
+     FROM grant_sources ORDER BY name`,
+	)
+	.all<{
+		id: string;
+		name: string;
+		base_url: string;
+		adapter_key: string;
+		enabled: number;
+		last_run_at: string | null;
+		last_status: string | null;
+		last_error: string | null;
+		last_found: number;
+	}>();
+---
+
+<AdminLayout title="Sources — Admin">
+	<div class="flex flex-wrap items-end justify-between gap-4">
+		<div>
+			<h1 class="text-4xl">Sources</h1>
+			<p class="mt-2 text-foreground/80">Registry + last discovery run. Cron also hits enabled sources daily.</p>
+		</div>
+		<form method="post" action="/admin/api/run">
+			<input type="hidden" name="all" value="1" />
+			<button type="submit" class={cn(buttonVariants({ size: 'lg' }))}>Run all now</button>
+		</form>
+	</div>
+
+	<ul class="mt-8 grid gap-4">
+		{
+			(sources.results ?? []).map((s) => (
+				<li class="rounded-base border-2 border-border bg-secondary-background p-5 shadow-shadow">
+					<div class="flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<h2 class="text-2xl">{s.name}</h2>
+							<p class="mt-1 text-sm text-foreground/70">
+								adapter <code>{s.adapter_key}</code> ·{' '}
+								<a href={s.base_url} class="underline" target="_blank" rel="noopener noreferrer">
+									list URL
+								</a>
+							</p>
+						</div>
+						<div class="flex flex-wrap gap-2">
+							<Badge>{s.enabled ? 'enabled' : 'disabled'}</Badge>
+							{s.last_status && <Badge variant="neutral">{s.last_status}</Badge>}
+						</div>
+					</div>
+					<p class="mt-3 text-sm">
+						Last run: {s.last_run_at ?? 'never'}
+						{s.last_found != null ? ` · found ${s.last_found}` : ''}
+					</p>
+					{s.last_error && <p class="mt-2 text-sm text-[#b00020]">{s.last_error}</p>}
+					<form method="post" action="/admin/api/run" class="mt-4">
+						<input type="hidden" name="source_id" value={s.id} />
+						<button type="submit" class={cn(buttonVariants({ variant: 'neutral', size: 'sm' }))}>
+							Run now
+						</button>
+					</form>
+				</li>
+			))
+		}
+	</ul>
+</AdminLayout>

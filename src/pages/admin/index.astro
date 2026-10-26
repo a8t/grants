@@ -1,0 +1,69 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { isAdminAuthed } from '@/lib/admin';
+import { getDb, getEnv } from '@/lib/db';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+const env = getEnv();
+if (!isAdminAuthed(Astro.request, env)) {
+	return Astro.redirect('/admin/login');
+}
+
+const db = getDb();
+const sources = await db
+	.prepare(`SELECT COUNT(*) AS c FROM grant_sources`)
+	.first<{ c: number }>();
+const pending = await db
+	.prepare(`SELECT COUNT(*) AS c FROM grant_proposals WHERE status = 'pending'`)
+	.first<{ c: number }>();
+const grants = await db.prepare(`SELECT COUNT(*) AS c FROM grants`).first<{ c: number }>();
+const last = await db
+	.prepare(
+		`SELECT name, last_run_at, last_status, last_found FROM grant_sources ORDER BY (last_run_at IS NULL), last_run_at DESC LIMIT 5`,
+	)
+	.all<{ name: string; last_run_at: string | null; last_status: string | null; last_found: number }>();
+---
+
+<AdminLayout title="Admin overview">
+	<h1 class="text-4xl">Overview</h1>
+	<p class="mt-2 text-foreground/80">Discovery staging — proposals never auto-publish.</p>
+
+	<div class="mt-8 grid gap-4 sm:grid-cols-3">
+		<div class="rounded-base border-2 border-border bg-secondary-background p-5 shadow-shadow">
+			<p class="font-heading text-sm">Sources</p>
+			<p class="mt-2 text-3xl">{sources?.c ?? 0}</p>
+		</div>
+		<div class="rounded-base border-2 border-border bg-secondary-background p-5 shadow-shadow">
+			<p class="font-heading text-sm">Pending proposals</p>
+			<p class="mt-2 text-3xl">{pending?.c ?? 0}</p>
+		</div>
+		<div class="rounded-base border-2 border-border bg-secondary-background p-5 shadow-shadow">
+			<p class="font-heading text-sm">Published grants</p>
+			<p class="mt-2 text-3xl">{grants?.c ?? 0}</p>
+		</div>
+	</div>
+
+	<div class="mt-8 flex flex-wrap gap-3">
+		<a href="/admin/sources" class={cn(buttonVariants({ size: 'lg' }), 'no-underline')}>Manage sources</a>
+		<a href="/admin/proposals" class={cn(buttonVariants({ variant: 'neutral', size: 'lg' }), 'no-underline')}>
+			Review queue
+		</a>
+	</div>
+
+	<h2 class="mt-10 text-2xl">Recent source runs</h2>
+	<ul class="mt-4 grid gap-2">
+		{
+			(last.results ?? []).map((row) => (
+				<li class="rounded-base border-2 border-border bg-secondary-background px-4 py-3 text-sm">
+					<span class="font-heading">{row.name}</span>
+					{' · '}
+					{row.last_run_at ?? 'never'}
+					{' · '}
+					{row.last_status ?? '—'}
+					{row.last_found != null ? ` · found ${row.last_found}` : ''}
+				</li>
+			))
+		}
+	</ul>
+</AdminLayout>

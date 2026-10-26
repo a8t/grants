@@ -1,6 +1,9 @@
 # Copy to .dev.vars for local `astro dev` / wrangler secrets.
 # Magic-link works in stub mode when RESEND_API_KEY is unset (link logged in terminal).
 
+# Required for /admin
+ADMIN_SECRET=dev-admin-secret-change-me
+
 # BETTER_AUTH_SECRET=generate-with-openssl-rand-base64-32
 # SESSION_SECRET=legacy-fallback-for-BETTER_AUTH_SECRET
 # RESEND_API_KEY=re_xxx

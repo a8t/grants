@@ -11,6 +11,7 @@ interface Env {
 	ASSETS: Fetcher;
 	APP_NAME: string;
 	DEFAULT_PROVINCE: string;
+	ADMIN_SECRET?: string;
 	RESEND_API_KEY?: string;
 	/** @deprecated Prefer BETTER_AUTH_SECRET */
 	SESSION_SECRET?: string;

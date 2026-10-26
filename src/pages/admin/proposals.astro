@@ -1,0 +1,159 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { isAdminAuthed } from '@/lib/admin';
+import { getDb, getEnv } from '@/lib/db';
+import { cn } from '@/lib/utils';
+
+const env = getEnv();
+if (!isAdminAuthed(Astro.request, env)) {
+	return Astro.redirect('/admin/login');
+}
+
+const status = Astro.url.searchParams.get('status') || 'pending';
+const db = getDb();
+const rows = await db
+	.prepare(
+		`SELECT p.*, s.name AS source_name
+     FROM grant_proposals p
+     JOIN grant_sources s ON s.id = p.source_id
+     WHERE p.status = ?
+     ORDER BY p.discovered_at DESC
+     LIMIT 100`,
+	)
+	.bind(status)
+	.all<{
+		id: string;
+		title: string;
+		funder: string;
+		url: string;
+		deadline_at: string | null;
+		deadline_notes: string | null;
+		raw_excerpt: string | null;
+		applicant_types: string;
+		province_scope: string;
+		status: string;
+		source_name: string;
+		discovered_at: string;
+	}>();
+---
+
+<AdminLayout title="Review queue — Admin">
+	<div class="flex flex-wrap items-end justify-between gap-4">
+		<div>
+			<h1 class="text-4xl">Review queue</h1>
+			<p class="mt-2 text-foreground/80">Approve publishes into public `grants`. Edit fields first if needed.</p>
+		</div>
+		<div class="flex flex-wrap gap-2">
+			{
+				(['pending', 'approved', 'rejected'] as const).map((s) => (
+					<a
+						href={`/admin/proposals?status=${s}`}
+						class={cn(
+							buttonVariants({ variant: status === s ? 'default' : 'neutral', size: 'sm' }),
+							'no-underline',
+						)}
+					>
+						{s}
+					</a>
+				))
+			}
+		</div>
+	</div>
+
+	<ul class="mt-8 grid gap-4">
+		{
+			(rows.results ?? []).map((p) => (
+				<li class="rounded-base border-2 border-border bg-secondary-background p-5 shadow-shadow">
+					<div class="flex flex-wrap items-start justify-between gap-2">
+						<div>
+							<p class="text-sm text-foreground/70">
+								{p.source_name} · {p.funder}
+							</p>
+							<h2 class="text-2xl leading-tight">{p.title}</h2>
+						</div>
+						<Badge variant="neutral">{p.status}</Badge>
+					</div>
+					<p class="mt-2 text-sm">
+						<a href={p.url} class="underline break-all" target="_blank" rel="noopener noreferrer">
+							{p.url}
+						</a>
+					</p>
+					<p class="mt-2 text-sm">
+						Deadline: {p.deadline_at ?? p.deadline_notes ?? '—'} · Who: {p.applicant_types} · Scope:{' '}
+						{p.province_scope}
+					</p>
+					{p.raw_excerpt && <p class="mt-3 text-sm text-foreground/85">{p.raw_excerpt}</p>}
+
+					{
+						p.status === 'pending' && (
+							<form method="post" action="/admin/api/review" class="mt-5 grid gap-3 border-t-2 border-border pt-4">
+								<input type="hidden" name="id" value={p.id} />
+								<label class="grid gap-1 text-sm">
+									<span class="font-heading">Title</span>
+									<input name="title" value={p.title} class="h-10 rounded-base border-2 border-border px-3" />
+								</label>
+								<label class="grid gap-1 text-sm">
+									<span class="font-heading">Funder</span>
+									<input name="funder" value={p.funder} class="h-10 rounded-base border-2 border-border px-3" />
+								</label>
+								<label class="grid gap-1 text-sm">
+									<span class="font-heading">Eligibility / excerpt</span>
+									<textarea name="eligibility_summary" rows="3" class="rounded-base border-2 border-border px-3 py-2">{p.raw_excerpt ?? ''}</textarea>
+								</label>
+								<div class="grid gap-3 sm:grid-cols-3">
+									<label class="grid gap-1 text-sm">
+										<span class="font-heading">Deadline (YYYY-MM-DD)</span>
+										<input
+											name="deadline_at"
+											value={p.deadline_at ?? ''}
+											class="h-10 rounded-base border-2 border-border px-3"
+										/>
+									</label>
+									<label class="grid gap-1 text-sm">
+										<span class="font-heading">Deadline notes</span>
+										<input
+											name="deadline_notes"
+											value={p.deadline_notes ?? ''}
+											class="h-10 rounded-base border-2 border-border px-3"
+										/>
+									</label>
+									<label class="grid gap-1 text-sm">
+										<span class="font-heading">Applicant types</span>
+										<select name="applicant_types" class="h-10 rounded-base border-2 border-border px-3">
+											<option value="both" selected={p.applicant_types === 'both'}>both</option>
+											<option value="individual" selected={p.applicant_types === 'individual'}>individual</option>
+											<option value="organization" selected={p.applicant_types === 'organization'}>organization</option>
+										</select>
+									</label>
+								</div>
+								<div class="flex flex-wrap gap-2">
+									<button type="submit" name="action" value="approve" class={cn(buttonVariants())}>
+										Approve → publish
+									</button>
+									<button
+										type="submit"
+										name="action"
+										value="reject"
+										class={cn(buttonVariants({ variant: 'neutral' }))}
+									>
+										Reject
+									</button>
+								</div>
+							</form>
+						)
+					}
+				</li>
+			))
+		}
+	</ul>
+
+	{
+		(rows.results ?? []).length === 0 && (
+			<p class="mt-8 rounded-base border-2 border-border bg-secondary-background p-6 shadow-shadow">
+				No {status} proposals. Run discovery from Sources.
+			</p>
+		)
+	}
+</AdminLayout>

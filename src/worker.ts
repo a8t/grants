@@ -1,8 +1,8 @@
 import { handle } from '@astrojs/cloudflare/handler';
+import { runAllEnabledSources } from './lib/discovery/runner';
 
 /**
- * Custom Worker entry so Cron Triggers can attach beside Astro's fetch handler.
- * Reminder / digest sweeps will live in `scheduled` once Resend is wired.
+ * Custom Worker entry: Astro fetch + daily discovery cron.
  */
 export default {
 	async fetch(request, env, ctx) {
@@ -10,12 +10,17 @@ export default {
 	},
 	async scheduled(controller, env, ctx) {
 		ctx.waitUntil(
-			Promise.resolve().then(() => {
+			(async () => {
 				console.log(
-					`[cron] tick at ${new Date(controller.scheduledTime).toISOString()} (cron=${controller.cron}) — reminder sweep stub`,
+					`[cron] discovery tick ${new Date(controller.scheduledTime).toISOString()} cron=${controller.cron}`,
 				);
-				void env;
-			}),
+				try {
+					const summaries = await runAllEnabledSources(env.DB);
+					console.log('[cron] discovery done', JSON.stringify(summaries));
+				} catch (e) {
+					console.error('[cron] discovery failed', e);
+				}
+			})(),
 		);
 	},
 } satisfies ExportedHandler<Env>;
