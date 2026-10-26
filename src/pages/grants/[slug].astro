@@ -4,6 +4,7 @@ import DeadlineChips from '@/components/DeadlineChips.astro';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { getDb, parseJsonArray } from '@/lib/db';
+import { FREE_SAVE_CAP, isPaidSeeker, saveCapFor } from '@/lib/billing';
 import {
 	applicantLabel,
 	formatAmount,
@@ -31,6 +32,9 @@ if (!error && !grant) {
 }
 
 const disciplines = grant ? parseJsonArray(grant.disciplines) : [];
+const user = Astro.locals.user;
+const paid = isPaidSeeker(user);
+const cap = saveCapFor(user);
 ---
 
 <BaseLayout
@@ -111,15 +115,31 @@ const disciplines = grant ? parseJsonArray(grant.disciplines) : [];
 							>
 								View on funder site
 							</a>
-							<span
-								class={cn(
-									buttonVariants({ variant: 'neutral', size: 'lg' }),
-									'cursor-not-allowed opacity-60',
-								)}
-								title="Saves require a free account — coming soon"
-							>
-								Save (sign in)
-							</span>
+							{
+								!user ? (
+									<a
+										href="/sign-in?next=/pricing"
+										class={cn(buttonVariants({ variant: 'neutral', size: 'lg' }), 'no-underline')}
+									>
+										Save (sign in)
+									</a>
+								) : paid ? (
+									<span
+										class={cn(buttonVariants({ variant: 'neutral', size: 'lg' }), 'opacity-90')}
+										title="Unlimited saves on paid — wire UI next"
+									>
+										Save (paid · unlimited)
+									</span>
+								) : (
+									<a
+										href="/pricing"
+										class={cn(buttonVariants({ variant: 'neutral', size: 'lg' }), 'no-underline')}
+										title={`Free save cap ${cap ?? FREE_SAVE_CAP} — upgrade for unlimited`}
+									>
+										Save (free · {cap ?? FREE_SAVE_CAP} cap) → Upgrade
+									</a>
+								)
+							}
 						</div>
 					</div>
 				</article>

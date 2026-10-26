@@ -1,0 +1,19 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+---
+
+<BaseLayout title="Checkout canceled — Grant Finder">
+	<section class="mx-auto max-w-xl px-4 pb-16 pt-12">
+		<div class="rounded-base border-2 border-border bg-secondary-background p-8 shadow-shadow">
+			<h1 class="text-4xl">Checkout canceled</h1>
+			<p class="mt-3 text-foreground/85">
+				No charge. You can restart anytime from the pricing page.
+			</p>
+			<div class="mt-8">
+				<a href="/pricing" class={cn(buttonVariants(), 'no-underline')}>Back to pricing</a>
+			</div>
+		</div>
+	</section>
+</BaseLayout>

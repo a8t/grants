@@ -53,8 +53,11 @@ Set in `.dev.vars` (local) or Wrangler secrets (prod):
 | `OPENAI_API_KEY` | No | Optional LLM enrich fallback |
 | `GRANT_EXTRACTOR_PROVIDER` | No | `auto` (default) · `workers-ai` · `openai` |
 | `DISCOVERY_LLM_ENRICH` | No | Set `1` to LLM-enrich new proposals during cron (rate-limited) |
-| `STRIPE_SECRET_KEY` | No | Checkout stub until wired |
-| `STRIPE_WEBHOOK_SECRET` | No | Webhooks later |
+| `PADDLE_API_KEY` | No | Paddle Billing API key (omit to stub checkout) |
+| `PADDLE_WEBHOOK_SECRET` | No | Notification destination secret |
+| `PADDLE_ENV` | No | `sandbox` (default) or `production` |
+| `PADDLE_PRICE_SEEKER` | For real checkout | Price ID for seeker paid |
+| `PADDLE_PRICE_WRITER` | For real checkout | Price ID for writer listing |
 
 Wrangler `vars` already set: `APP_NAME`, `DEFAULT_PROVINCE=ON`.
 
@@ -66,12 +69,45 @@ Wrangler `vars` already set: `APP_NAME`, `DEFAULT_PROVINCE=ON`.
 
 ## Auth (Better Auth)
 
-Magic-link only (no passwords), D1-backed sessions, Resend for delivery.
+Magic-link only (no passwords), D1-backed sessions, Resend for delivery. **No** `@better-auth/stripe` — billing is Paddle.
 
 - `GET/POST /api/auth/*` — Better Auth catch-all (`[...all].ts`)
 - `/sign-in` — request a magic link
 - `POST /api/auth/sign-out` — clear session cookie
 - Schema: migration `0002_better_auth.sql` (`user` / `session` / `account` / `verification`)
+
+## Billing (Paddle)
+
+Merchant of Record for **seeker paid** + **writer paid listing**.
+
+| Piece | Detail |
+| --- | --- |
+| Client | `src/lib/paddle.ts` — create transaction → `checkout.url` |
+| Checkout | `POST /api/paddle/checkout` (signed-in) |
+| Webhook | `POST /api/paddle/webhook` — verify `Paddle-Signature` |
+| UI | `/pricing`, `/billing/success`, `/billing/cancel` |
+| Stub | No `PADDLE_API_KEY` → flip tier/listing locally + redirect success |
+
+### Paddle sandbox setup
+
+1. Create a **sandbox** account at https://sandbox-vendors.paddle.com  
+2. Catalog → Products: **Seeker paid** + **Writer listing** → copy Price IDs (`pri_…`)  
+3. Developer tools → Authentication → create API key → `PADDLE_API_KEY`  
+4. Developer tools → Notifications → add destination  
+   - URL: `https://canada-grant-finder.andy8tran.workers.dev/api/paddle/webhook`  
+   - Events: `subscription.activated`, `subscription.created`, `subscription.updated`, `subscription.canceled`, `subscription.past_due`, `transaction.completed`  
+   - Copy endpoint secret → `PADDLE_WEBHOOK_SECRET`  
+5. Checkout → **Default payment link** → point at `https://canada-grant-finder.andy8tran.workers.dev/billing/success` (required for `checkout.url`)  
+6. Set secrets / `.dev.vars`: `PADDLE_ENV=sandbox`, price IDs, keys  
+
+### Test
+
+```bash
+# Stub (no keys): sign in → /pricing → Upgrade — tier flips immediately
+# Sandbox: same flow opens Paddle Checkout; complete with test card; webhook sets paid/listed
+```
+
+Cancel/refund in Paddle sandbox → webhook downgrades `subscription_tier=free` and unlists writers.
 
 ## Design notes
 
