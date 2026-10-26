@@ -1,6 +1,18 @@
+import {
+	deadlinesFromLegacy,
+	nextDeadlineDate,
+	normalizeDeadlines,
+	serializeDeadlines,
+	type GrantDeadline,
+} from '@/lib/deadlines';
 import { getAdapter } from './adapters';
 import type { DiscoveredGrant } from './types';
 import { slugify } from './fetch';
+
+function discoveredDeadlines(item: DiscoveredGrant): GrantDeadline[] {
+	if (item.deadlines?.length) return normalizeDeadlines(item.deadlines);
+	return deadlinesFromLegacy(item.deadlineAt ?? null, item.deadlineNotes ?? null);
+}
 
 export type SourceRow = {
 	id: string;
@@ -35,10 +47,13 @@ async function upsertProposal(
 		if (existing.status === 'rejected' || existing.status === 'approved') {
 			return 'skipped';
 		}
+		const deadlines = discoveredDeadlines(item);
+		const deadlineAt = nextDeadlineDate(deadlines) ?? deadlines[0]?.date ?? null;
 		await db
 			.prepare(
 				`UPDATE grant_proposals SET
           title = ?, funder = ?, url = ?, deadline_at = ?, deadline_notes = ?,
+          deadlines_json = ?,
           raw_excerpt = ?, applicant_types = ?, amount_notes = ?, province_scope = ?,
           disciplines = ?, updated_at = datetime('now')
          WHERE id = ? AND status = 'pending'`,
@@ -47,8 +62,9 @@ async function upsertProposal(
 				item.title,
 				item.funder,
 				item.url,
-				item.deadlineAt ?? null,
+				deadlineAt,
 				item.deadlineNotes ?? null,
+				serializeDeadlines(deadlines),
 				item.rawExcerpt ?? null,
 				item.applicantTypes ?? 'both',
 				item.amountNotes ?? null,
@@ -61,12 +77,14 @@ async function upsertProposal(
 	}
 
 	const id = crypto.randomUUID();
+	const deadlines = discoveredDeadlines(item);
+	const deadlineAt = nextDeadlineDate(deadlines) ?? deadlines[0]?.date ?? null;
 	await db
 		.prepare(
 			`INSERT INTO grant_proposals (
-        id, source_id, title, funder, url, deadline_at, deadline_notes, raw_excerpt,
+        id, source_id, title, funder, url, deadline_at, deadline_notes, deadlines_json, raw_excerpt,
         applicant_types, amount_notes, province_scope, disciplines, dedupe_key, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
 		)
 		.bind(
 			id,
@@ -74,8 +92,9 @@ async function upsertProposal(
 			item.title,
 			item.funder,
 			item.url,
-			item.deadlineAt ?? null,
+			deadlineAt,
 			item.deadlineNotes ?? null,
+			serializeDeadlines(deadlines),
 			item.rawExcerpt ?? null,
 			item.applicantTypes ?? 'both',
 			item.amountNotes ?? null,
@@ -194,7 +213,7 @@ export async function approveProposal(
 		title?: string;
 		funder?: string;
 		url?: string;
-		deadline_at?: string | null;
+		deadlines?: GrantDeadline[];
 		deadline_notes?: string | null;
 		eligibility_summary?: string;
 		applicant_types?: string;
@@ -213,6 +232,7 @@ export async function approveProposal(
 			url: string;
 			deadline_at: string | null;
 			deadline_notes: string | null;
+			deadlines_json: string | null;
 			raw_excerpt: string | null;
 			applicant_types: string;
 			amount_notes: string | null;
@@ -227,14 +247,19 @@ export async function approveProposal(
 
 	let amountMin: number | null = null;
 	let amountMax: number | null = null;
+	let llmDeadlines: GrantDeadline[] = [];
 	if (proposal.llm_extract_json) {
 		try {
 			const ex = JSON.parse(proposal.llm_extract_json) as {
 				amount_min?: number | null;
 				amount_max?: number | null;
+				deadlines?: GrantDeadline[];
+				deadline_at?: string | null;
 			};
 			amountMin = typeof ex.amount_min === 'number' ? ex.amount_min : null;
 			amountMax = typeof ex.amount_max === 'number' ? ex.amount_max : null;
+			if (Array.isArray(ex.deadlines)) llmDeadlines = normalizeDeadlines(ex.deadlines);
+			else if (ex.deadline_at) llmDeadlines = deadlinesFromLegacy(ex.deadline_at, null);
 		} catch {
 			/* ignore */
 		}
@@ -243,12 +268,34 @@ export async function approveProposal(
 	const title = edits?.title?.trim() || proposal.title;
 	const funder = edits?.funder?.trim() || proposal.funder;
 	const url = edits?.url?.trim() || proposal.url;
-	const deadline_at =
-		edits && 'deadline_at' in edits ? edits.deadline_at ?? null : proposal.deadline_at;
+
+	let deadlines: GrantDeadline[];
+	if (edits && 'deadlines' in edits) {
+		deadlines = normalizeDeadlines(edits.deadlines ?? []);
+	} else if (llmDeadlines.length) {
+		deadlines = llmDeadlines;
+	} else {
+		deadlines = deadlinesFromLegacy(
+			proposal.deadline_at,
+			proposal.deadline_notes,
+		);
+		if (proposal.deadlines_json) {
+			try {
+				const parsed = normalizeDeadlines(JSON.parse(proposal.deadlines_json));
+				if (parsed.length) deadlines = parsed;
+			} catch {
+				/* keep legacy */
+			}
+		}
+	}
+
 	const deadline_notes =
 		edits && 'deadline_notes' in edits
 			? edits.deadline_notes ?? null
 			: proposal.deadline_notes;
+	const deadline_at = nextDeadlineDate(deadlines) ?? deadlines[0]?.date ?? null;
+	const deadlines_json = serializeDeadlines(deadlines);
+
 	const eligibility =
 		edits?.eligibility_summary?.trim() ||
 		proposal.raw_excerpt ||
@@ -274,9 +321,9 @@ export async function approveProposal(
 		.prepare(
 			`INSERT INTO grants (
         id, slug, name, funder, applicant_types, eligibility_summary,
-        amount_min, amount_max, amount_notes, deadline_at, deadline_notes,
+        amount_min, amount_max, amount_notes, deadline_at, deadline_notes, deadlines_json,
         url, province_scope, disciplines, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		)
 		.bind(
 			grantId,
@@ -290,6 +337,7 @@ export async function approveProposal(
 			amount_notes,
 			deadline_at,
 			deadline_notes,
+			deadlines_json,
 			url,
 			province_scope,
 			disciplines,
@@ -300,7 +348,7 @@ export async function approveProposal(
 	await db
 		.prepare(
 			`UPDATE grant_proposals SET status = 'approved', published_grant_id = ?, reviewed_at = datetime('now'),
-        title = ?, funder = ?, url = ?, deadline_at = ?, deadline_notes = ?, raw_excerpt = ?,
+        title = ?, funder = ?, url = ?, deadline_at = ?, deadline_notes = ?, deadlines_json = ?, raw_excerpt = ?,
         applicant_types = ?, province_scope = ?, amount_notes = ?, updated_at = datetime('now')
        WHERE id = ?`,
 		)
@@ -311,6 +359,7 @@ export async function approveProposal(
 			url,
 			deadline_at,
 			deadline_notes,
+			deadlines_json,
 			eligibility,
 			applicant_types,
 			province_scope,

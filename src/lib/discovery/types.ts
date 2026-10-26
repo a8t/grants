@@ -1,7 +1,11 @@
+import type { GrantDeadline } from '@/lib/deadlines';
+
 export type DiscoveredGrant = {
 	title: string;
 	funder: string;
 	url: string;
+	/** Structured ISO deadlines when scrape can parse them. */
+	deadlines?: GrantDeadline[];
 	deadlineAt?: string | null;
 	deadlineNotes?: string | null;
 	rawExcerpt?: string | null;

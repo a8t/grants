@@ -169,7 +169,7 @@ INSERT INTO grants (
   'Ontario Creates',
   'organization',
   'Investment for Ontario music companies (labels, publishers, managers) with revenues over $125K.',
-  NULL, NULL, NULL, '2026-04-23', 'Second deadline Sep 10, 2026',
+  NULL, NULL, NULL, '2026-11-15', 'Two intakes — see program page',
   'https://www.ontariocreates.ca/investment-programs/content-creation/ontario-music-fund', 'ON',
   '["music"]', 'open'
 ),
@@ -180,7 +180,7 @@ INSERT INTO grants (
   'Ontario Creates',
   'organization',
   'Growth investment for Ontario music companies with revenues $25K–$125K.',
-  NULL, NULL, NULL, '2026-04-30', 'Second deadline Sep 24, 2026',
+  NULL, NULL, NULL, '2026-11-30', 'Two intakes — see program page',
   'https://www.ontariocreates.ca/investment-programs/content-creation/ontario-music-fund', 'ON',
   '["music"]', 'open'
 ),

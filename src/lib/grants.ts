@@ -1,9 +1,26 @@
+import {
+	deadlinesFromLegacy,
+	formatIsoDateEnCa,
+	isGrantClosed,
+	isGrantOpen,
+	nextDeadlineDate,
+	parseDeadlinesJson,
+	todayToronto,
+	type GrantDeadline,
+} from './deadlines';
 import type { Grant, GrantListFilters } from './types';
 
 const PROVINCE_ALIASES: Record<string, string[]> = {
 	ON: ['ON', 'CA'],
 	CA: ['CA'],
 };
+
+/** Resolve structured deadlines for a grant row (JSON or legacy deadline_at). */
+export function grantDeadlines(grant: Grant): GrantDeadline[] {
+	const fromJson = parseDeadlinesJson(grant.deadlines_json ?? null);
+	if (fromJson.length) return fromJson;
+	return deadlinesFromLegacy(grant.deadline_at, grant.deadline_notes);
+}
 
 export async function listGrants(
 	db: D1Database,
@@ -28,11 +45,13 @@ export async function listGrants(
 		binds.push(filters.applicant);
 	}
 
-	if (filters.status && filters.status !== 'all') {
-		clauses.push('status = ?');
-		binds.push(filters.status);
-	} else {
-		clauses.push("status IN ('open', 'rolling')");
+	// Open/closed is computed in JS vs America/Toronto "today" + deadlines_json
+	// (SQL deadline_at alone misses multi-deadline rows whose next date ≠ deadline_at).
+	const today = todayToronto();
+	const statusFilter = filters.status;
+
+	if (statusFilter === 'rolling') {
+		clauses.push("status = 'rolling'");
 	}
 
 	const sql = `
@@ -45,7 +64,29 @@ export async function listGrants(
   `;
 
 	const result = await db.prepare(sql).bind(...binds).all<Grant>();
-	return result.results ?? [];
+	const rows = result.results ?? [];
+
+	return rows
+		.filter((g) => {
+			const deadlines = grantDeadlines(g);
+			if (statusFilter === 'rolling') return g.status === 'rolling';
+			if (statusFilter === 'closed') {
+				return isGrantClosed({ deadlines, status: g.status, today });
+			}
+			if (statusFilter === 'open') {
+				return isGrantOpen({ deadlines, status: g.status, today });
+			}
+			// Default browse = currently open (incl. rolling)
+			return isGrantOpen({ deadlines, status: g.status, today });
+		})
+		.sort((a, b) => {
+			const na = nextDeadlineDate(grantDeadlines(a), today);
+			const nb = nextDeadlineDate(grantDeadlines(b), today);
+			if (na && nb) return na.localeCompare(nb);
+			if (na) return -1;
+			if (nb) return 1;
+			return a.name.localeCompare(b.name);
+		});
 }
 
 export async function getGrantBySlug(
@@ -75,17 +116,22 @@ export function formatAmount(grant: Grant): string {
 	return `From ${fmt(grant.amount_min!)}`;
 }
 
+/** Single-line summary (list cards). Prefer next upcoming ISO date. */
 export function formatDeadline(grant: Grant): string {
 	if (grant.status === 'rolling') return 'Rolling / ongoing';
+	const deadlines = grantDeadlines(grant);
+	const next = nextDeadlineDate(deadlines);
+	if (next) {
+		const hit = deadlines.find((d) => d.date === next);
+		const label = hit?.label ? ` (${hit.label})` : '';
+		return `${formatIsoDateEnCa(next)}${label}`;
+	}
+	if (deadlines.length) {
+		const last = deadlines[deadlines.length - 1];
+		return `Closed · last ${formatIsoDateEnCa(last.date)}`;
+	}
 	if (grant.deadline_notes) return grant.deadline_notes;
-	if (!grant.deadline_at) return 'See funder site';
-	const d = new Date(`${grant.deadline_at}T12:00:00Z`);
-	return new Intl.DateTimeFormat('en-CA', {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(d);
+	return 'See funder site';
 }
 
 export function applicantLabel(type: Grant['applicant_types']): string {
@@ -98,3 +144,6 @@ export function applicantLabel(type: Grant['applicant_types']): string {
 			return 'Individuals & organizations';
 	}
 }
+
+export { todayToronto, formatIsoDateEnCa, nextDeadlineDate };
+export type { GrantDeadline };

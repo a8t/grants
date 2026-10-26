@@ -14,8 +14,11 @@ export type Grant = {
 	amount_min: number | null;
 	amount_max: number | null;
 	amount_notes: string | null;
+	/** Denormalized next upcoming ISO date (America/Toronto open filter). */
 	deadline_at: string | null;
 	deadline_notes: string | null;
+	/** JSON array of { date: YYYY-MM-DD, label?: string|null } */
+	deadlines_json?: string | null;
 	url: string;
 	province_scope: string;
 	disciplines: string;
