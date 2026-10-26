@@ -94,7 +94,14 @@ Corpus roadmap (research): project store `docs/grant-sources.md`.
 
 LLM fields are **never** auto-published. Admin compares scrape vs extract, edits, then Approve.
 
-**Deadlines:** ISO `YYYY-MM-DD` only (one or many via `deadlines_json`). Prose like “rolling” / “early 2026” goes in `deadline_notes`, never as a date. **Open/closed** uses **America/Toronto** calendar day: open if `status=rolling` or any deadline date ≥ today; null/notes-only/past-only are not open.
+**Deadlines:** ISO `YYYY-MM-DD` only (one or many via `deadlines_json`). Prose like “rolling” / “early 2026” goes in `deadline_notes`, never as a date.
+
+**Open / closed** (America/Toronto calendar day):
+- **Open:** `status=rolling`, or any deadline date ≥ today
+- **Closed:** has ≥1 ISO date and **all** dates &lt; today (not rolling)
+- **Unknown (neither filter):** null / notes-only — excluded from both Open and Closed
+
+Past deadline chips are greyed out; today/upcoming keep full emphasis.
 
 Workers AI binding (`AI`) is declared in `wrangler.jsonc`. Default model: `@cf/meta/llama-3.1-8b-instruct-fp8` (falls back to `@cf/meta/llama-3.2-3b-instruct`). Set `OPENAI_API_KEY` only if Workers AI quality is insufficient.
 

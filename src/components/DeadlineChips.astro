@@ -1,6 +1,8 @@
 ---
 import {
 	formatIsoDateEnCa,
+	isDeadlinePast,
+	todayToronto,
 	type GrantDeadline,
 } from '@/lib/deadlines';
 
@@ -13,6 +15,7 @@ interface Props {
 }
 
 const { deadlines, notes, rolling = false, size = 'sm' } = Astro.props;
+const today = todayToronto();
 const pad = size === 'md' ? 'px-3 py-1.5 text-sm' : 'px-2 py-0.5 text-xs';
 ---
 
@@ -25,14 +28,26 @@ const pad = size === 'md' ? 'px-3 py-1.5 text-sm' : 'px-2 py-0.5 text-xs';
 		</span>
 	) : deadlines.length > 0 ? (
 		<span class="flex flex-wrap gap-1.5">
-			{deadlines.map((d) => (
-				<span
-					class={`inline-flex items-center gap-1 rounded-base border-2 border-border bg-main/40 shadow-shadow ${pad}`}
-				>
-					<span class="font-heading tabular-nums">{formatIsoDateEnCa(d.date)}</span>
-					{d.label && <span class="text-foreground/70">· {d.label}</span>}
-				</span>
-			))}
+			{deadlines.map((d) => {
+				const past = isDeadlinePast(d.date, today);
+				return (
+					<span
+						class:list={[
+							'inline-flex items-center gap-1 rounded-base border-2 border-border',
+							pad,
+							past
+								? 'bg-secondary-background/80 text-foreground/45 opacity-60 shadow-none line-through decoration-foreground/30'
+								: 'bg-main/40 text-foreground shadow-shadow',
+						]}
+						title={past ? 'Past deadline' : undefined}
+					>
+						<span class="font-heading tabular-nums">{formatIsoDateEnCa(d.date)}</span>
+						{d.label && (
+							<span class={past ? 'text-foreground/40' : 'text-foreground/70'}>· {d.label}</span>
+						)}
+					</span>
+				);
+			})}
 		</span>
 	) : notes ? (
 		<span class={`text-foreground/80 ${size === 'md' ? 'text-base' : 'text-sm'}`}>{notes}</span>

@@ -27,7 +27,7 @@ const applicant =
 		: 'all';
 const status =
 	statusParam === 'open' || statusParam === 'rolling' || statusParam === 'closed'
-		? (statusParam as GrantStatus)
+		? (statusParam as GrantStatus | 'closed')
 		: 'all';
 
 let grants = [];

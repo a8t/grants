@@ -34,8 +34,9 @@ export function GrantSearchForm({ q = '', applicant = 'all', status = 'all' }: P
 			<label className="flex w-full flex-col gap-1.5 md:w-44">
 				<span className="font-heading text-sm">Status</span>
 				<select name="status" defaultValue={status} className={selectClass}>
-					<option value="all">Open + rolling</option>
+					<option value="all">Open (default)</option>
 					<option value="open">Open deadline</option>
+					<option value="closed">Closed</option>
 					<option value="rolling">Rolling</option>
 				</select>
 			</label>

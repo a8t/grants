@@ -1,10 +1,9 @@
 /**
- * Quick smoke for structured deadlines + America/Toronto open filter.
+ * Quick smoke for structured deadlines + America/Toronto open/closed filter.
  * Run: node scripts/test-deadlines.mjs
  */
 import assert from 'node:assert/strict';
 
-// Inline mirrors of core logic (keep in sync with src/lib/deadlines.ts) for zero-build smoke.
 const ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 function isValidIsoDate(value) {
@@ -26,7 +25,10 @@ function normalizeDeadlines(input) {
 		const date = typeof item.date === 'string' ? item.date.trim() : '';
 		if (!isValidIsoDate(date) || seen.has(date)) continue;
 		seen.add(date);
-		out.push({ date, label: typeof item.label === 'string' && item.label.trim() ? item.label.trim() : null });
+		out.push({
+			date,
+			label: typeof item.label === 'string' && item.label.trim() ? item.label.trim() : null,
+		});
 	}
 	return out.sort((a, b) => a.date.localeCompare(b.date));
 }
@@ -38,52 +40,52 @@ function isGrantOpen({ deadlines, status, today }) {
 
 function isGrantClosed({ deadlines, status, today }) {
 	if (status === 'rolling') return false;
-	if (!deadlines.length) return true;
+	if (!deadlines.length) return false; // unknown — not closed
 	return deadlines.every((d) => d.date < today);
 }
 
-const today = '2026-10-26'; // fixed America/Toronto-style fixture
+function isDeadlinePast(date, today) {
+	return isValidIsoDate(date) && date < today;
+}
 
-// Reject prose / invalid
-assert.deepEqual(normalizeDeadlines([{ date: 'rolling' }, { date: 'early 2026' }, { date: '2026-13-40' }]), []);
+const today = '2026-10-26';
+
 assert.deepEqual(
-	normalizeDeadlines([{ date: '2026-09-10', label: 'intake 2' }, { date: '2026-04-23', label: 'intake 1' }]),
-	[
-		{ date: '2026-04-23', label: 'intake 1' },
-		{ date: '2026-09-10', label: 'intake 2' },
-	],
+	normalizeDeadlines([{ date: 'rolling' }, { date: 'early 2026' }, { date: '2026-13-40' }]),
+	[],
 );
 
-// Multi-deadline: still open if any date >= today
-const multi = normalizeDeadlines([
+const multiPast = normalizeDeadlines([
 	{ date: '2026-04-23', label: 'intake 1' },
 	{ date: '2026-09-10', label: 'intake 2' },
 ]);
-// Sep 10 2026 is before Oct 26 2026 → both past → closed
-assert.equal(isGrantOpen({ deadlines: multi, status: 'open', today }), false);
-assert.equal(isGrantClosed({ deadlines: multi, status: 'open', today }), true);
+assert.equal(isGrantOpen({ deadlines: multiPast, status: 'open', today }), false);
+assert.equal(isGrantClosed({ deadlines: multiPast, status: 'open', today }), true);
 
-const multiFuture = normalizeDeadlines([
+const multiMixed = normalizeDeadlines([
 	{ date: '2026-04-23', label: 'intake 1' },
 	{ date: '2026-11-15', label: 'intake 2' },
 ]);
-assert.equal(isGrantOpen({ deadlines: multiFuture, status: 'open', today }), true);
+assert.equal(isGrantOpen({ deadlines: multiMixed, status: 'open', today }), true);
+assert.equal(isGrantClosed({ deadlines: multiMixed, status: 'open', today }), false);
+assert.equal(isDeadlinePast('2026-04-23', today), true);
+assert.equal(isDeadlinePast('2026-11-15', today), false);
+assert.equal(isDeadlinePast('2026-10-26', today), false); // today = upcoming emphasis
 
-// Null / notes-only not open
+// Null / notes-only → neither open nor closed
 assert.equal(isGrantOpen({ deadlines: [], status: 'open', today }), false);
-assert.equal(isGrantClosed({ deadlines: [], status: 'open', today }), true);
+assert.equal(isGrantClosed({ deadlines: [], status: 'open', today }), false);
 
-// Rolling open
 assert.equal(isGrantOpen({ deadlines: [], status: 'rolling', today }), true);
+assert.equal(isGrantClosed({ deadlines: [], status: 'rolling', today }), false);
 
-// Single upcoming
 assert.equal(
 	isGrantOpen({ deadlines: [{ date: '2026-10-26', label: null }], status: 'open', today }),
 	true,
 );
 assert.equal(
-	isGrantOpen({ deadlines: [{ date: '2026-10-25', label: null }], status: 'open', today }),
-	false,
+	isGrantClosed({ deadlines: [{ date: '2026-10-25', label: null }], status: 'open', today }),
+	true,
 );
 
-console.log('ok — deadlines + open filter smoke passed (today fixture', today + ')');
+console.log('ok — deadlines open/closed + past-chip rules (today fixture', today + ')');

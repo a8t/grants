@@ -165,8 +165,13 @@ export function latestDeadlineDate(deadlines: GrantDeadline[]): string | null {
 }
 
 /**
- * Open = rolling status, OR at least one ISO deadline >= today (Toronto).
- * Null / notes-only / past-only → not open.
+ * Open / closed use America/Toronto calendar "today".
+ *
+ * - Open: status=rolling, OR at least one ISO deadline >= today
+ * - Closed: has ≥1 ISO deadline AND all dates < today, AND not rolling
+ * - Unknown (neither): null / notes-only / no ISO dates — excluded from both
+ *   Open and Closed filters (still visible when status filter is "all"/unset
+ *   only if we broaden default; default browse stays Open-only).
  */
 export function isGrantOpen(opts: {
 	deadlines: GrantDeadline[];
@@ -185,8 +190,23 @@ export function isGrantClosed(opts: {
 }): boolean {
 	if (opts.status === 'rolling') return false;
 	const today = opts.today ?? todayToronto();
-	if (!opts.deadlines.length) return true; // no real dates → not open
+	// Null / notes-only → unknown (not closed)
+	if (!opts.deadlines.length) return false;
 	return opts.deadlines.every((d) => d.date < today);
+}
+
+/** No ISO dates and not rolling — neither open nor closed. */
+export function isGrantDeadlineUnknown(opts: {
+	deadlines: GrantDeadline[];
+	status?: string | null;
+}): boolean {
+	if (opts.status === 'rolling') return false;
+	return opts.deadlines.length === 0;
+}
+
+/** Past relative to America/Toronto today (strict &lt; today). */
+export function isDeadlinePast(date: string, today: string = todayToronto()): boolean {
+	return isValidIsoDate(date) && date < today;
 }
 
 export function formatIsoDateEnCa(iso: string): string {
