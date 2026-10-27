@@ -41,6 +41,20 @@ npm run dev                      # http://localhost:4321
 | `npm run build` | Production Worker build |
 | `npm run preview` | Preview the Worker build locally |
 | `npm run generate-types` | Regenerate `worker-configuration.d.ts` |
+| `npm test` | Unit + integration (Vitest) |
+| `npm run test:unit` | Pure lib tests (Node) |
+| `npm run test:integration` | D1 via Miniflare / vitest-pool-workers |
+
+### Tests
+
+```bash
+npm test                 # unit then integration
+npm run test:unit        # deadlines, LLM extract parse, slug/dedupe, Paddle sig, billing
+npm run test:integration # local D1 migrate + listGrants / approve / Paddle entitlements
+npm run test:watch       # unit watch mode
+```
+
+Integration tests apply `migrations/` inside Miniflare (no network). Resend / Paddle API / Workers AI stay unset so stubs apply — no live calls.
 
 ### Database (Drizzle → Wrangler)
 

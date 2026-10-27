@@ -1,0 +1,20 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"compatibility_date": "2025-06-17",
+	"compatibility_flags": ["nodejs_compat"],
+	"name": "canada-grant-finder-test",
+	"main": "./tests/integration/test-worker.ts",
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "grants",
+			"database_id": "00000000-0000-0000-0000-000000000001",
+			"migrations_dir": "migrations"
+		}
+	],
+	"vars": {
+		"APP_NAME": "Grant Finder",
+		"DEFAULT_PROVINCE": "ON",
+		"GRANT_EXTRACTOR_PROVIDER": "auto"
+	}
+}
