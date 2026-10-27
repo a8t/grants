@@ -1,9 +1,11 @@
 import { handle } from '@astrojs/cloudflare/handler';
 import { enrichPendingBatch } from './lib/discovery/enrich';
 import { runAllEnabledSources } from './lib/discovery/runner';
+import { createEmailSender } from './lib/email';
+import { runReminderSweep } from './lib/reminders';
 
 /**
- * Astro fetch + daily discovery cron (+ optional LLM enrich).
+ * Astro fetch + daily discovery cron + paid-seeker deadline reminders.
  */
 export default {
 	async fetch(request, env, ctx) {
@@ -13,8 +15,23 @@ export default {
 		ctx.waitUntil(
 			(async () => {
 				console.log(
-					`[cron] discovery tick ${new Date(controller.scheduledTime).toISOString()} cron=${controller.cron}`,
+					`[cron] tick ${new Date(controller.scheduledTime).toISOString()} cron=${controller.cron}`,
 				);
+
+				try {
+					const reminders = await runReminderSweep(
+						env.DB,
+						createEmailSender(env),
+						{
+							now: new Date(controller.scheduledTime),
+							appUrl: env.PUBLIC_APP_URL,
+						},
+					);
+					console.log('[cron] reminders', JSON.stringify(reminders));
+				} catch (e) {
+					console.error('[cron] reminders failed', e);
+				}
+
 				try {
 					const summaries = await runAllEnabledSources(env.DB);
 					console.log('[cron] discovery done', JSON.stringify(summaries));
