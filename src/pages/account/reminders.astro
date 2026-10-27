@@ -1,0 +1,116 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import {
+	ALLOWED_REMINDER_OFFSETS,
+	isPaidSeeker,
+} from '@/lib/billing';
+import { getDb } from '@/lib/db';
+import { getReminderPrefs } from '@/lib/reminders';
+import { cn } from '@/lib/utils';
+
+const user = Astro.locals.user;
+const paid = isPaidSeeker(user);
+const saved = Astro.url.searchParams.get('saved');
+const error = Astro.url.searchParams.get('error');
+
+let offsets: number[] = [...ALLOWED_REMINDER_OFFSETS];
+let weeklyDigest = false;
+if (user && paid) {
+	try {
+		const prefs = await getReminderPrefs(getDb(), user);
+		offsets = prefs.reminderOffsets;
+		weeklyDigest = prefs.weeklyDigest;
+	} catch {
+		/* keep defaults */
+	}
+}
+---
+
+<BaseLayout title="Reminder settings — Grant Finder">
+	<section class="mx-auto max-w-2xl px-4 pb-16 pt-8">
+		<h1 class="text-4xl sm:text-5xl">Email reminders</h1>
+		<p class="mt-3 text-foreground/80">
+			Paid seekers get deadline emails at configurable offsets (America/Toronto calendar day). Delivery via
+			Resend.
+		</p>
+
+		{
+			!user ? (
+				<div class="mt-8 rounded-base border-2 border-border bg-secondary-background p-6 shadow-shadow">
+					<p class="font-heading text-xl">Sign in required</p>
+					<a href="/sign-in?next=/account/reminders" class={cn(buttonVariants({ size: 'lg' }), 'mt-4 inline-flex no-underline')}>
+						Sign in
+					</a>
+				</div>
+			) : !paid ? (
+				<div class="mt-8 rounded-base border-2 border-border bg-secondary-background p-6 shadow-shadow">
+					<p class="font-heading text-xl">Paid feature</p>
+					<p class="mt-2 text-sm text-foreground/80">
+						Free accounts get a fixed monthly new-matches digest. Upgrade for deadline reminders
+						(14 / 7 / 3 / 1 days before).
+					</p>
+					<a href="/pricing" class={cn(buttonVariants({ size: 'lg' }), 'mt-4 inline-flex no-underline')}>
+						Upgrade with Paddle
+					</a>
+				</div>
+			) : (
+				<div class="mt-8 rounded-base border-2 border-border bg-secondary-background p-6 shadow-shadow">
+					{saved && (
+						<p class="mb-4 rounded-base border-2 border-border bg-main/40 px-3 py-2 text-sm">
+							Preferences saved.
+						</p>
+					)}
+					{error && (
+						<p class="mb-4 rounded-base border-2 border-border bg-[#ff4d50]/80 px-3 py-2 text-sm">
+							Could not save ({error}).
+						</p>
+					)}
+					<p class="text-sm">
+						Signed in as <span class="font-heading">{user.email}</span>{' '}
+						<Badge className="ml-1">paid</Badge>
+					</p>
+					<form method="POST" action="/api/reminders/prefs" class="mt-6 space-y-6" accept-charset="utf-8">
+						<input type="hidden" name="reminderOffsets" id="reminder-offsets-value" value={offsets.join(',')} />
+						<fieldset>
+							<legend class="font-heading text-lg">Days before deadline</legend>
+							<p class="mt-1 text-sm text-foreground/70">Select one or more offsets.</p>
+							<div class="mt-3 flex flex-wrap gap-3">
+								{ALLOWED_REMINDER_OFFSETS.map((n) => (
+									<label class="inline-flex items-center gap-2 rounded-base border-2 border-border bg-main/20 px-3 py-2 text-sm shadow-shadow">
+										<input
+											type="checkbox"
+											class="offset-check size-4 accent-black"
+											value={String(n)}
+											checked={offsets.includes(n)}
+											data-offset={String(n)}
+										/>
+										{n} day{n === 1 ? '' : 's'}
+									</label>
+								))}
+							</div>
+						</fieldset>
+						<label class="flex items-center gap-2 text-sm">
+							<input type="checkbox" name="weeklyDigest" value="1" checked={weeklyDigest} class="size-4 accent-black" />
+							Optional weekly digest
+						</label>
+						<button type="submit" class={cn(buttonVariants({ size: 'lg' }))}>
+							Save preferences
+						</button>
+					</form>
+					<script>
+						const form = document.querySelector('form[action="/api/reminders/prefs"]');
+						const hidden = document.getElementById('reminder-offsets-value');
+						form?.addEventListener('submit', () => {
+							const checked = [...document.querySelectorAll('.offset-check:checked')].map(
+								(el) => (el as HTMLInputElement).value,
+							);
+							if (hidden) (hidden as HTMLInputElement).value = checked.join(',');
+						});
+					</script>
+				</div>
+			)
+		}
+	</section>
+</BaseLayout>

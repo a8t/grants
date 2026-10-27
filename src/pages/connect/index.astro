@@ -6,6 +6,10 @@ import { getDb, parseJsonArray } from '@/lib/db';
 import { listListedWriters } from '@/lib/writers';
 import { cn } from '@/lib/utils';
 
+const user = Astro.locals.user;
+const leadFlash = Astro.url.searchParams.get('lead');
+const errorCode = Astro.url.searchParams.get('error');
+
 let writers = [];
 let error: string | null = null;
 try {
@@ -21,10 +25,32 @@ try {
 		<div class="mb-8 max-w-2xl">
 			<h1 class="text-4xl sm:text-5xl">Connect</h1>
 			<p class="mt-3 text-foreground/80">
-				Directory of grant writers who work with Ontario arts &amp; culture applicants. Profiles are
-				public; contacting is gated to signed-in seekers (lead form ships next).
+				Directory of grant writers who work with Ontario arts &amp; culture applicants. Only paid /
+				listed writers appear and can receive lead requests.
 			</p>
 		</div>
+
+		{
+			leadFlash === 'sent' && (
+				<p class="mb-6 rounded-base border-2 border-border bg-main/40 px-4 py-3 text-sm shadow-shadow">
+					Intro request sent. The writer gets an email (Resend / stub).
+				</p>
+			)
+		}
+		{
+			errorCode === 'WRITER_NOT_LISTED' && (
+				<p class="mb-6 rounded-base border-2 border-border bg-[#ff4d50]/80 px-4 py-3 text-sm shadow-shadow">
+					That writer is not listed — leads are blocked.
+				</p>
+			)
+		}
+		{
+			errorCode === 'AUTH_REQUIRED' && (
+				<p class="mb-6 rounded-base border-2 border-border bg-[#ff4d50]/80 px-4 py-3 text-sm shadow-shadow">
+					Sign in as a seeker to request an intro.
+				</p>
+			)
+		}
 
 		{
 			error ? (
@@ -56,21 +82,36 @@ try {
 										</span>
 									))}
 								</div>
-								<div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
-									<span>
-										<span class="font-heading">Area</span> {provinces.join(', ')}
-										{writer.rate_range ? ` · ${writer.rate_range}` : ''}
-									</span>
-									<span
-										class={cn(
-											buttonVariants({ size: 'sm', variant: 'neutral' }),
-											'cursor-not-allowed opacity-60',
-										)}
-										title="Lead / contact form requires seeker sign-in"
-									>
-										Request intro
-									</span>
+								<div class="mt-4 text-sm">
+									<span class="font-heading">Area</span> {provinces.join(', ')}
+									{writer.rate_range ? ` · ${writer.rate_range}` : ''}
 								</div>
+								{
+									user ? (
+										<form method="POST" action="/api/leads" class="mt-4 space-y-2">
+											<input type="hidden" name="writerUserId" value={writer.user_id} />
+											<label class="block text-xs font-heading">Message</label>
+											<textarea
+												name="message"
+												required
+												rows="3"
+												maxlength="2000"
+												class="w-full rounded-base border-2 border-border bg-secondary-background p-2 text-sm shadow-shadow"
+												placeholder="Brief intro request…"
+											/>
+											<button type="submit" class={cn(buttonVariants({ size: 'sm' }))}>
+												Request intro
+											</button>
+										</form>
+									) : (
+										<a
+											href="/sign-in?next=/connect"
+											class={cn(buttonVariants({ size: 'sm', variant: 'neutral' }), 'mt-4 inline-flex no-underline')}
+										>
+											Sign in to request intro
+										</a>
+									)
+								}
 							</li>
 						);
 					})}
@@ -82,7 +123,7 @@ try {
 			!error && writers.length === 0 && (
 				<div class="rounded-base border-2 border-border bg-secondary-background p-8 text-center shadow-shadow">
 					<p class="font-heading text-xl">No listed writers yet</p>
-					<p class="mt-2 text-sm">Seed the database to load stub profiles.</p>
+					<p class="mt-2 text-sm">Seed the database or pay to list via Paddle.</p>
 				</div>
 			)
 		}

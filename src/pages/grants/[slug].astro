@@ -11,6 +11,7 @@ import {
 	grantDeadlines,
 	getGrantBySlug,
 } from '@/lib/grants';
+import { countUserSaves, hasSave } from '@/lib/saves';
 import { cn } from '@/lib/utils';
 
 const { slug } = Astro.params;
@@ -35,6 +36,20 @@ const disciplines = grant ? parseJsonArray(grant.disciplines) : [];
 const user = Astro.locals.user;
 const paid = isPaidSeeker(user);
 const cap = saveCapFor(user);
+
+let saveCount = 0;
+let alreadySaved = false;
+if (user?.id && grant) {
+	try {
+		const db = getDb();
+		saveCount = await countUserSaves(db, user.id);
+		alreadySaved = await hasSave(db, user.id, grant.id);
+	} catch {
+		/* ignore */
+	}
+}
+const atCap = !paid && cap !== null && saveCount >= cap && !alreadySaved;
+const saveFlash = Astro.url.searchParams.get('save');
 ---
 
 <BaseLayout
@@ -67,6 +82,25 @@ const cap = saveCapFor(user);
 							<Badge variant="neutral">{grant.status}</Badge>
 							<Badge variant="neutral">{applicantLabel(grant.applicant_types)}</Badge>
 						</div>
+
+						{
+							saveFlash === 'ok' && (
+								<p class="mt-4 rounded-base border-2 border-border bg-main/40 px-3 py-2 text-sm">
+									Saved. {paid ? 'Unlimited on paid.' : `${saveCount} / ${cap ?? FREE_SAVE_CAP} free saves used.`}
+								</p>
+							)
+						}
+						{
+							saveFlash === 'cap' && (
+								<p class="mt-4 rounded-base border-2 border-border bg-[#ff4d50]/80 px-3 py-2 text-sm">
+									Free save cap reached ({cap ?? FREE_SAVE_CAP}).{' '}
+									<a href="/pricing" class="font-heading underline">
+										Upgrade for unlimited
+									</a>
+									.
+								</p>
+							)
+						}
 
 						<dl class="mt-8 grid gap-4 sm:grid-cols-2">
 							<div class="rounded-base border-2 border-border bg-main/30 p-4">
@@ -118,26 +152,37 @@ const cap = saveCapFor(user);
 							{
 								!user ? (
 									<a
-										href="/sign-in?next=/pricing"
+										href={`/sign-in?next=/grants/${grant.slug}`}
 										class={cn(buttonVariants({ variant: 'neutral', size: 'lg' }), 'no-underline')}
 									>
 										Save (sign in)
 									</a>
-								) : paid ? (
-									<span
-										class={cn(buttonVariants({ variant: 'neutral', size: 'lg' }), 'opacity-90')}
-										title="Unlimited saves on paid — wire UI next"
-									>
-										Save (paid · unlimited)
-									</span>
-								) : (
+								) : alreadySaved ? (
+									<form method="POST" action="/api/saves/form">
+										<input type="hidden" name="grantId" value={grant.id} />
+										<input type="hidden" name="slug" value={grant.slug} />
+										<input type="hidden" name="_method" value="DELETE" />
+										<button type="submit" class={cn(buttonVariants({ variant: 'neutral', size: 'lg' }))}>
+											Saved ✓ · Unsave
+										</button>
+									</form>
+								) : atCap ? (
 									<a
 										href="/pricing"
 										class={cn(buttonVariants({ variant: 'neutral', size: 'lg' }), 'no-underline')}
-										title={`Free save cap ${cap ?? FREE_SAVE_CAP} — upgrade for unlimited`}
 									>
-										Save (free · {cap ?? FREE_SAVE_CAP} cap) → Upgrade
+										Save cap hit ({cap}) — Upgrade
 									</a>
+								) : (
+									<form method="POST" action="/api/saves/form">
+										<input type="hidden" name="grantId" value={grant.id} />
+										<input type="hidden" name="slug" value={grant.slug} />
+										<button type="submit" class={cn(buttonVariants({ variant: 'neutral', size: 'lg' }))}>
+											{paid
+												? 'Save (paid · unlimited)'
+												: `Save (free · ${saveCount}/${cap ?? FREE_SAVE_CAP})`}
+										</button>
+									</form>
 								)
 							}
 						</div>
