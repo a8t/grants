@@ -17,6 +17,7 @@ const path = Astro.url.pathname;
 const user = Astro.locals.user;
 const nav = [
 	{ href: '/grants', label: 'Browse grants' },
+	{ href: '/calendar', label: 'Calendar' },
 	{ href: '/connect', label: 'Connect' },
 	{ href: '/pricing', label: 'Pricing' },
 ];
@@ -107,8 +108,8 @@ const nav = [
 			<div class="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
 				<p class="font-heading">Grant Finder</p>
 				<p class="max-w-xl text-foreground/80">
-					Canada-wide shell · Ontario arts &amp; culture corpus first. Guest browse is free; accounts
-					and reminders come next.
+					Canada-wide shell · Ontario arts &amp; culture corpus first. Guest browse is free; paid
+					seekers get calendar + deadline email reminders.
 				</p>
 			</div>
 		</footer>

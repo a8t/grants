@@ -6,11 +6,42 @@ export async function resetAppTables(): Promise<void> {
 	await db.batch([
 		db.prepare('DELETE FROM grant_proposals'),
 		db.prepare('DELETE FROM grant_sources'),
+		db.prepare('DELETE FROM reminder_sends'),
+		db.prepare('DELETE FROM writer_leads'),
 		db.prepare('DELETE FROM saves'),
 		db.prepare('DELETE FROM writer_profiles'),
 		db.prepare('DELETE FROM seeker_profiles'),
 		db.prepare('DELETE FROM grants'),
 	]);
+}
+
+export async function seedUser(opts: {
+	id: string;
+	email?: string;
+	accountType?: string;
+	subscriptionTier?: string;
+	subscriptionStatus?: string | null;
+	name?: string;
+}): Promise<void> {
+	const now = Date.now();
+	await env.DB.prepare(
+		`INSERT INTO "user" (
+      id, name, email, emailVerified, image, createdAt, updatedAt,
+      accountType, seekerKind, subscriptionTier, subscriptionStatus
+    ) VALUES (?, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?)`,
+	)
+		.bind(
+			opts.id,
+			opts.name ?? 'Test User',
+			opts.email ?? `${opts.id}@example.com`,
+			now,
+			now,
+			opts.accountType ?? 'seeker',
+			opts.accountType === 'writer' ? null : 'individual',
+			opts.subscriptionTier ?? 'free',
+			opts.subscriptionStatus ?? null,
+		)
+		.run();
 }
 
 export async function seedGrant(opts: {

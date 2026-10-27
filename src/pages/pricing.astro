@@ -48,14 +48,27 @@ const signedIn = Boolean(user);
 				<p class="text-sm text-foreground/70">Seekers</p>
 				<h2 class="mt-1 text-3xl">Paid seeker</h2>
 				<p class="mt-3 text-foreground/85">
-					Unlimited saves, ranked matches, deadline calendar + email reminders (coming online next).
+					Unlimited saves, deadline calendar, and email reminders (14/7/3/1-day offsets via Resend).
 					Free accounts keep sticky filters and a {FREE_SAVE_CAP}-save cap.
 				</p>
 				<ul class="mt-4 list-disc space-y-1 pl-5 text-sm text-foreground/85">
 					<li>Guest browse stays free</li>
-					<li>Free: sticky profile + limited saves</li>
-					<li>Paid: full match + reminders</li>
+					<li>Free: sticky profile + {FREE_SAVE_CAP} saves + monthly digest</li>
+					<li>Paid: calendar + configurable deadline reminders</li>
 				</ul>
+				{
+					paidSeeker && (
+						<p class="mt-4 text-sm">
+							<a href="/account/reminders" class="font-heading underline">
+								Configure reminder offsets
+							</a>
+							{' · '}
+							<a href="/calendar" class="font-heading underline">
+								Open calendar
+							</a>
+						</p>
+					)
+				}
 				<div class="mt-8">
 					{
 						paidSeeker ? (

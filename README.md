@@ -11,7 +11,7 @@ UI: **neobrutalism** (yellow palette from [neobrutalism.dev](https://www.neobrut
 - D1 schema for grants, users (seeker individual/org + writer), profiles, saves, subscription fields
 - Better Auth magic-link (Resend) + Paddle billing
 - Drizzle ORM schema (`src/lib/db/schema.ts`); migrations applied **only** by Wrangler
-- Daily cron hook (reminder sweep stub)
+- Daily cron: discovery + paid-seeker deadline reminder sweep (idempotent Resend)
 
 ## Prerequisites
 
@@ -49,12 +49,14 @@ npm run dev                      # http://localhost:4321
 
 ```bash
 npm test                 # unit then integration
-npm run test:unit        # deadlines, LLM extract parse, slug/dedupe, Paddle sig, billing
-npm run test:integration # local D1 migrate + listGrants / approve / Paddle entitlements
+npm run test:unit        # deadlines, reminders due/TZ, billing entitlements, Paddle sig, extract
+npm run test:integration # D1: listGrants / approve / Paddle / saves paywall / reminder cron / writer leads
 npm run test:watch       # unit watch mode
 ```
 
 Integration tests apply `migrations/` inside Miniflare (no network). Resend / Paddle API / Workers AI stay unset so stubs apply — no live calls.
+
+Paywall + reminder edge cases covered: guest cannot save; free under/at cap (402 `SAVE_CAP`); paid unlimited; reminder prefs paid-only (402); cron due / not-due / past deadline / duplicate send / America/Toronto boundary; writer unlisted vs listed leads; canceled subscription loses paid calendar + unlists writers.
 
 ### Database (Drizzle → Wrangler)
 
@@ -95,7 +97,7 @@ Wrangler `vars` already set: `APP_NAME`, `DEFAULT_PROVINCE=ON`.
 
 - **D1** `DB` → database name `grants`
 - **R2** `ASSETS_BUCKET` → `grants-assets` (unused in this slice)
-- **Cron** `0 14 * * *` → `scheduled` handler stub in `src/worker.ts`
+- **Cron** `0 14 * * *` → reminder sweep + discovery (+ optional LLM enrich) in `src/worker.ts`
 
 ## Auth (Better Auth)
 
@@ -140,6 +142,18 @@ Merchant of Record for **seeker paid** + **writer paid listing**.
 
 Cancel/refund in Paddle sandbox → webhook downgrades `subscription_tier=free` and unlists writers.
 
+## Paywalls + reminders
+
+Server-enforced (not UI-only). Structured JSON errors: `AUTH_REQUIRED` (401), `SAVE_CAP` / `PAID_REQUIRED` (402), `WRITER_NOT_LISTED` (403).
+
+| Piece | Detail |
+| --- | --- |
+| Saves | `POST/DELETE /api/saves` (+ HTML form `/api/saves/form`) — free cap `FREE_SAVE_CAP` (8); paid unlimited |
+| Calendar | `GET /api/calendar` + `/calendar` — paid seekers |
+| Reminder prefs | `GET/PUT/POST /api/reminders/prefs` + `/account/reminders` — offsets `[14,7,3,1]`, weekly digest flag |
+| Cron reminders | `runReminderSweep` in `src/worker.ts` — America/Toronto “today”; idempotent via `reminder_sends` unique key |
+| Writer leads | `POST /api/leads` — only `listed=1` + paid writer; cancel unlists |
+
 ## Design notes
 
 - Palette: **neobrutalism yellow** (`npx shadcn add https://neobrutalism.dev/r/styling/yellow.json`)
@@ -156,7 +170,7 @@ Corpus roadmap (research): project store `docs/grant-sources.md`.
 | Staging | D1 `grant_proposals` — pending / approved / rejected |
 | Adapters | `tac`, `oac`, `canadian_heritage` (robots-aware HTML) |
 | LLM extract | `GrantPageExtractor` — Workers AI first, OpenAI fallback |
-| Cron | Daily discovery; optional LLM enrich when `DISCOVERY_LLM_ENRICH=1` |
+| Cron | Deadline reminders (paid seekers) + discovery; optional LLM enrich when `DISCOVERY_LLM_ENRICH=1` |
 | Admin | `/admin` — shared secret `ADMIN_SECRET`; **Enrich with LLM**, edit before Approve |
 
 LLM fields are **never** auto-published. Admin compares scrape vs extract, edits, then Approve.
