@@ -1,5 +1,5 @@
 /**
- * Drizzle schema mirroring the live D1 database (post 0001–0006).
+ * Drizzle schema mirroring the live D1 database (post 0001–0008).
  * Better Auth tables stay camelCase; app tables stay snake_case.
  */
 import { sql } from 'drizzle-orm';
@@ -172,6 +172,58 @@ export const writerProfiles = sqliteTable(
 			.default(sql`(datetime('now'))`),
 	},
 	(t) => [index('idx_writers_listed').on(t.listed)],
+);
+
+/** Idempotent log of deadline reminder emails (paid seekers). */
+export const reminderSends = sqliteTable(
+	'reminder_sends',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		grantId: text('grant_id')
+			.notNull()
+			.references(() => grants.id, { onDelete: 'cascade' }),
+		deadlineDate: text('deadline_date').notNull(),
+		offsetDays: integer('offset_days').notNull(),
+		sentAt: text('sent_at')
+			.notNull()
+			.default(sql`(datetime('now'))`),
+		emailId: text('email_id'),
+	},
+	(t) => [
+		index('idx_reminder_sends_user').on(t.userId),
+		index('idx_reminder_sends_sent').on(t.sentAt),
+		index('idx_reminder_sends_unique').on(
+			t.userId,
+			t.grantId,
+			t.deadlineDate,
+			t.offsetDays,
+		),
+	],
+);
+
+/** Seeker → listed writer contact leads. */
+export const writerLeads = sqliteTable(
+	'writer_leads',
+	{
+		id: text('id').primaryKey(),
+		writerUserId: text('writer_user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		seekerUserId: text('seeker_user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		message: text('message').notNull(),
+		createdAt: text('created_at')
+			.notNull()
+			.default(sql`(datetime('now'))`),
+	},
+	(t) => [
+		index('idx_writer_leads_writer').on(t.writerUserId),
+		index('idx_writer_leads_seeker').on(t.seekerUserId),
+	],
 );
 
 export const grantSources = sqliteTable('grant_sources', {
